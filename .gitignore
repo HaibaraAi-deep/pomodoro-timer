@@ -13,6 +13,9 @@ Thumbs.db
 .vscode/
 *.swp
 
+# AI Agent 记忆文件
+memory/
+
 # 环境变量/密钥（备用）
 .env
 .env.local
