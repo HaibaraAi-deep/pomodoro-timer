@@ -1,48 +1,78 @@
-# 🏗 番茄钟技术文档
+# 🏗 Technical Documentation / 技术文档
 
 ---
 
-## 1. 架构概览
+## 1. Architecture / 架构
 
-### 设计原则
+### Design Principles / 设计原则
 
-- **零依赖**：纯 Vanilla JS，无需构建
-- **模块化**：每个功能独立模块，职责单一
-- **事件驱动**：模块间通过 CustomEvent 通信
-- **安全优先**：严格 CSP、Electron 加固、输入验证
-- **暗色优先设计**：以暗色主题为基础，亮色为覆盖层
+- **Zero dependencies**: Pure Vanilla JS
+- **Modular**: Single-responsibility modules
+- **Event-driven**: CustomEvent inter-module communication
+- **i18n-first**: All UI strings via `t()` function
+- **Dark-first**: Dark theme as base, light as override
 
-### 双版本架构
+### Dual Build / 双版本
 
-| 版本 | 文件 | 加载方式 | 用途 |
-|------|------|----------|------|
-| ES Module | `src/js/app.js` + 各模块 | `<script type="module">` | HTTP 服务器 |
-| IIFE 打包 | `src/js/main.js` | `<script src>` | file:// 协议 |
+| Version | File | Loading | Use Case |
+|---------|------|---------|----------|
+| ES Module | `src/js/app.js` + modules | `<script type="module">` | HTTP server |
+| IIFE bundle | `src/js/main.js` | `<script src>` | file:// protocol |
 
 ---
 
-## 2. 模块详解
+## 2. i18n System / 国际化系统
 
-### 依赖图
+### Implementation / 实现
 
-```
-app.js (入口)
-  ├── timer.js
-  ├── tasks.js
-  ├── stats.js
-  ├── theme.js
-  ├── confetti.js
-  ├── pwa.js
-  ├── audio.js
-  └── settings.js
+```javascript
+var translations = {
+  zh: { focus: '专注', start: '开始', ... },
+  en: { focus: 'Focus', start: 'Start', ... }
+};
+
+function t(key) { return translations[currentLang][key] || key; }
+function tf(key, args) { /* template with {0}, {1} */ }
 ```
 
-### 模块 API
+### DOM Binding / DOM 绑定
 
-| 模块 | 导出 |
-|------|------|
-| Timer | `initTimer`, `startTimer`, `pauseTimer`, `resetTimer`, `skip`, `setMode`, `getState`, `resetSessionCounter` |
-| Tasks | `addTask`, `deleteTask`, `toggleTask`, `getTasks`, `incrementPomodoros`, `getActiveTaskId`, `setActiveTaskId`, `reloadTasks` |
+Three `data-*` attributes for automatic translation:
+
+| Attribute | Updates | Example |
+|-----------|---------|---------|
+| `data-i18n="key"` | `textContent` | `<span data-i18n="focus">专注</span>` |
+| `data-i18n-aria="key"` | `aria-label` | `<button data-i18n-aria="reset">` |
+| `data-i18n-placeholder="key"` | `placeholder` | `<input data-i18n-placeholder="addTaskPlaceholder">` |
+
+### Language Switch Flow / 语言切换流程
+
+```
+User clicks EN/中
+  → toggleLang()
+    → currentLang = zh ↔ en
+    → saveLang() → localStorage
+    → applyI18n() → update all [data-i18n] elements
+    → updateTimerUI() → timer button/label text
+    → renderStats() → today summary + heatmap
+    → renderTaskList() → task aria-labels
+    → Rebuild settings panel if open
+```
+
+### Persistence / 持久化
+
+- Key: `pomodoro_lang`
+- Values: `"zh"` (default) or `"en"`
+- Saved to localStorage on every switch
+
+---
+
+## 3. Module API / 模块 API
+
+| Module | Key Exports |
+|--------|-------------|
+| Timer | `initTimer`, `startTimer`, `pauseTimer`, `resetTimer`, `skip`, `setMode`, `getState` |
+| Tasks | `addTask`, `deleteTask`, `toggleTask`, `getTasks`, `incrementPomodoros`, `getActiveTaskId`, `setActiveTaskId` |
 | Stats | `initStats`, `renderStats`, `getStats`, `getTodayStats`, `getWeeklyStats`, `invalidateStatsCache` |
 | Settings | `initSettings`, `exportData`, `clearAllData` |
 | Theme | `initTheme` |
@@ -52,25 +82,21 @@ app.js (入口)
 
 ---
 
-## 3. 事件系统
+## 4. Event System / 事件系统
 
-| 事件名 | 触发模块 | 数据 | 监听模块 |
-|--------|----------|------|----------|
-| `timer:tick` | timer | `{remaining, elapsed, mode}` | — |
-| `timer:complete` | timer | `{mode, completedSessions, actualDuration}` | — |
-| `timer:sessionComplete` | timer | `{mode, sessionCount, actualDuration}` | stats, audio, confetti, timer |
-| `timer:reset` | timer | `{mode}` | — |
-| `timer:modeChange` | timer | `{mode}` | — |
-| `timer:incrementPomodoros` | timer | `{taskId}` | app → tasks |
-| `settings:dataChanged` | settings | — | app, stats |
+| Event | Source | Data |
+|-------|--------|------|
+| `timer:tick` | timer | `{remaining, elapsed, mode}` |
+| `timer:complete` | timer | `{mode, completedSessions, actualDuration}` |
+| `timer:sessionComplete` | timer | `{mode, sessionCount, actualDuration}` |
+| `timer:incrementPomodoros` | timer | `{taskId}` |
+| `settings:dataChanged` | settings | — |
 
 ---
 
-## 4. 计时器实现
+## 5. Timer Implementation / 计时器实现
 
-### 计时方式
-
-IIFE 打包版（`main.js`）使用 `setInterval` 主线程计时：
+Uses `setInterval` for reliable cross-environment timing:
 
 ```javascript
 timerInterval = setInterval(function () {
@@ -84,60 +110,30 @@ timerInterval = setInterval(function () {
 }, 1000);
 ```
 
-ES Module 版（`timer.js`）使用 Web Worker + setInterval 降级方案。
-
-### 状态机
-
-```
-         start()           pause()
-  IDLE ──────────→ RUNNING ──────────→ PAUSED
-   ↑                  │                   │
-   │                  │ complete()        │ start()
-   │                  ↓                   │
-   │              COMPLETED              │
-   │                  │                   │
-   └──────────────────┴──────────────────┘
-```
+State machine: `IDLE → RUNNING → PAUSED → RUNNING → COMPLETED`
 
 ---
 
-## 5. 存储层
+## 6. Storage / 存储
 
-### LocalStorage 键值
+| Key | Type | Write Trigger |
+|-----|------|---------------|
+| `pomodoro_tasks` | `Task[]` | Task CRUD |
+| `pomodoro_stats` | `StatRecord[]` | Focus complete |
+| `pomodoro_theme` | `"dark"\|"light"` | Theme toggle |
+| `pomodoro_pomo_counter` | `string` | Focus complete |
+| `pomodoro_active_task` | `string` | Set active task |
+| `pomodoro_lang` | `"zh"\|"en"` | Language switch |
 
-| 键 | 类型 | 写入时机 |
-|----|------|----------|
-| `pomodoro_tasks` | `Task[]` | 增删改任务 |
-| `pomodoro_stats` | `StatRecord[]` | 专注完成 |
-| `pomodoro_theme` | `"dark"\|"light"` | 切换主题 |
-| `pomodoro_pomo_counter` | `string` | 专注完成 |
-| `pomodoro_active_task` | `string` | 设置活动任务 |
+Write safety: `saveTasks()` returns boolean, failed writes roll back memory state.
 
-### 写入安全
-
-- `saveTasks()` 返回 `boolean`，失败时回滚内存状态
-- 写入失败显示存储空间不足警告
-
-### 统计缓存
-
-```javascript
-var statsCache = null;
-var statsCacheDirty = true;
-
-function getStats() {
-  if (!statsCacheDirty && statsCache !== null) return statsCache;
-  // ... 读取、验证、过滤 ...
-  statsCache = filtered;
-  statsCacheDirty = false;
-  return filtered;
-}
-```
+Stats cache: `statsCache` + `statsCacheDirty` flag avoids repeated parsing.
 
 ---
 
-## 6. 安全设计
+## 7. Security / 安全
 
-### CSP 策略
+### CSP
 
 ```
 default-src 'self' blob: file:;
@@ -145,64 +141,30 @@ script-src 'self' blob: file:;
 style-src 'self' file:;
 img-src 'self' file: data: blob:;
 worker-src 'self' blob: file:;
-frame-ancestors 'none';
-object-src 'none';
-base-uri 'self';
-form-action 'self';
+frame-ancestors 'none'; object-src 'none';
 ```
 
-### Electron 安全
+### Electron
 
-```javascript
-webPreferences: {
-  nodeIntegration: false,
-  contextIsolation: true,
-  sandbox: true,
-  allowRunningInsecureContent: false,
-  webSecurity: true
-}
-```
-
-自定义协议 `pomodoro://app/` 替代 `file://`。
+Custom protocol `pomodoro://app/`, `sandbox: true`, `webSecurity: true`.
 
 ---
 
-## 7. CSS 架构
+## 8. CSS Architecture / CSS 架构
 
-### 设计令牌
-
-```css
-:root {
-  --font-sans: 'Space Grotesk', ...;
-  --font-mono: 'JetBrains Mono', ...;
-  --radius-sm: 8px;  --radius-lg: 16px;  --radius-full: 9999px;
-  --space-xxs: 4px;  --space-md: 16px;   --space-3xl: 64px;
-  --transition-fast: 150ms;  --transition-base: 250ms;
-  --shadow-glow: 0 0 20px rgba(232,67,62,0.3);
-}
-```
-
-### 主题切换
-
-通过 `[data-theme]` 属性覆盖 CSS 变量，暗色为基础，亮色为覆盖。
-
-### 响应式
-
-| 断点 | 布局 |
-|------|------|
-| < 480px | 单列紧凑 |
-| 480-767px | 单列标准 |
-| ≥ 768px | 双列（任务 + 统计） |
+- Design tokens via CSS Custom Properties
+- `[data-theme="light"]` overrides dark defaults
+- Responsive: single column < 768px, two columns ≥ 768px
+- Fonts: Space Grotesk (UI) + JetBrains Mono (timer)
 
 ---
 
-## 8. 无障碍
+## 9. Platform Support / 平台支持
 
-| 特性 | 实现 |
-|------|------|
-| ARIA 标签 | 所有交互元素 |
-| Live Region | 状态变化播报 |
-| 键盘导航 | 全功能可操作 |
-| 焦点样式 | `:focus-visible` 2px 轮廓 |
-| 触控目标 | 最小 44×44px |
-| SVG 图标 | 内联，支持 `currentColor` |
+| Platform | Browser | Electron Desktop |
+|----------|---------|------------------|
+| Windows | ✅ | ✅ (NSIS installer) |
+| macOS | ✅ | ❌ Not configured |
+| Linux | ✅ | ❌ Not configured |
+
+Electron `package.json` only defines `win.target`. macOS/Linux desktop builds are not supported.

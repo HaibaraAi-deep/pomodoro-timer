@@ -1,134 +1,121 @@
-# 📖 番茄钟使用说明
+# 📖 Usage Guide / 使用说明
 
 ---
 
-## 1. 安装与启动
+## 1. Installation / 安装
 
-### 浏览器使用
-
-双击 `src/index.html` 文件直接打开，或通过本地服务器访问：
+### Clone / 克隆
 
 ```bash
-cd src && python -m http.server 8080
+git clone https://github.com/HaibaraAi-deep/pomodoro-timer.git
+cd pomodoro-timer
 ```
 
-### Electron 桌面应用
+### Browser / 浏览器
+
+**Direct open / 直接打开**: Double-click `src/index.html`
+
+**Local server / 本地服务器**:
+```bash
+cd src && python -m http.server 8080
+# or: npx serve src
+```
+Open `http://localhost:8080`
+
+### Electron Desktop (Windows Only) / 桌面应用（仅 Windows）
 
 ```bash
 npm install && npm start
 ```
 
----
-
-## 2. 计时器
-
-### 三种模式
-
-| 模式 | 时长 | 颜色 |
-|------|------|------|
-| 专注 | 25 分钟 | 番茄红 |
-| 短休息 | 5 分钟 | 翡翠绿 |
-| 长休息 | 15 分钟 | 靛蓝 |
-
-### 操作
-
-- **开始**：点击「开始」按钮或按 `Space`
-- **暂停**：运行中点击「暂停」或按 `Space`
-- **继续**：暂停后点击「继续」或按 `Space`
-- **重置**：点击重置图标或按 `R`
-- **跳过**：点击跳过图标或按 `S`
-
-### 自动模式切换
-
-- 专注完成 → 自动进入休息
-- 第 1-3 次 → 短休息（5 分钟）
-- 第 4 次 → 长休息（15 分钟）
-- 休息完成 → 自动回到专注
-
-### 视觉状态
-
-| 状态 | 效果 |
-|------|------|
-| 运行中 | 圆环发光，按钮「暂停」 |
-| 暂停中 | 数字闪烁，按钮「继续」 |
-| 最后 1 分钟 | 数字变红 |
-| 完成 | 撒花 + 提示音 |
+> ⚠️ macOS and Linux are **not supported** for the Electron build. Use the browser version on those platforms.
 
 ---
 
-## 3. 任务管理
+## 2. Language / 语言
 
-### 添加任务
+Click **EN/中** in the header to switch between Chinese (default) and English. Your choice persists across sessions.
 
-在输入框输入标题，按 `Enter` 或点击 `+` 按钮。
-
-### 活动任务
-
-- 点击任务标题 → 设为活动任务（红色边框标记）
-- 专注完成后番茄数自动计入活动任务
-- 未设置活动任务时计入第一个未完成任务
-
-### 完成 / 删除
-
-- 点击复选框 → 标记完成
-- 悬停显示 `×` → 删除（触控设备始终可见）
+点击顶栏 **EN/中** 切换语言，默认中文，选择自动保存。
 
 ---
 
-## 4. 专注统计
+## 3. Timer / 计时器
 
-- **今日摘要**：完成次数和总分钟数
-- **7 天热力图**：5 级颜色强度
-- 数据自动持久化，刷新不丢失
+| Mode / 模式 | Duration / 时长 | Color / 颜色 |
+|---|---|---|
+| Focus / 专注 | 25 min | Red / 红 |
+| Short Break / 短休息 | 5 min | Green / 绿 |
+| Long Break / 长休息 | 15 min | Blue / 蓝 |
 
----
-
-## 5. 主题切换
-
-点击右上角月亮/太阳图标切换暗色/亮色主题。
-
----
-
-## 6. 数据管理
-
-点击右上角齿轮图标打开侧边面板：
-
-- **导出**：下载 JSON 备份文件
-- **导入**：从备份文件恢复
-- **清除**：自定义确认对话框，清除后自动刷新
+- **Start/Pause**: Click button or `Space`
+- **Reset**: Click icon or `R`
+- **Skip**: Click icon or `S`
+- Auto long break every 4 focus sessions
+- Warning: last 60 seconds → red text
+- Paused: blinking display
 
 ---
 
-## 7. 键盘快捷键
+## 4. Tasks / 任务
 
-| 快捷键 | 功能 |
-|--------|------|
-| `Space` | 开始 / 暂停 |
-| `N` | 聚焦任务输入 |
-| `1` / `2` / `3` | 切换模式 |
-| `R` | 重置 |
-| `S` | 跳过 |
-| `Ctrl+,` | 数据管理 |
-| `Escape` | 关闭面板 |
+- **Add**: Type + `Enter` or click `+`
+- **Set active**: Click task title → red border, pomodoros count here
+- **Complete**: Click checkbox
+- **Delete**: Hover → `×` (always visible on touch devices)
 
 ---
 
-## 8. PWA 安装
+## 5. Stats / 统计
 
-使用 Chrome/Edge 访问（需 HTTP），点击页脚「安装」按钮。
+- Today's focus: sessions + minutes
+- 7-day heatmap: 5 intensity levels
+- Auto-persisted, survives refresh
 
 ---
 
-## 9. 常见问题
+## 6. Data Management / 数据管理
 
-**Q: 点击开始后倒计时不走？**
-A: 已修复。计时器改用 setInterval，所有环境可靠运行。
+Click ⚙ in header:
 
-**Q: 刷新后专注计数丢失？**
-A: 已修复。计数自动保存到 localStorage。
+- **Export**: Download JSON backup
+- **Import**: Restore from backup file
+- **Clear**: Custom confirm dialog, auto-refreshes UI
 
-**Q: 如何指定番茄数计入哪个任务？**
-A: 点击任务标题设为活动任务。
+---
 
-**Q: 触控设备怎么删除任务？**
-A: 删除按钮在触控设备上始终可见。
+## 7. Theme / 主题
+
+Click 🌙/☀️ to toggle dark/light. Persists across sessions.
+
+---
+
+## 8. Keyboard Shortcuts / 快捷键
+
+| Key | Action |
+|-----|--------|
+| `Space` | Start / Pause |
+| `N` | Focus task input |
+| `1`/`2`/`3` | Focus / Short / Long |
+| `R` | Reset |
+| `S` | Skip |
+| `Ctrl+,` | Data management |
+| `Escape` | Close panel |
+
+---
+
+## 9. PWA Install / PWA 安装
+
+Chrome/Edge on HTTP → click "Install" in footer.
+
+---
+
+## 10. Platform Support / 平台支持
+
+| Platform | Browser | Electron |
+|----------|---------|----------|
+| Windows | ✅ | ✅ |
+| macOS | ✅ | ❌ |
+| Linux | ✅ | ❌ |
+| Android | ✅ PWA | N/A |
+| iOS | ✅ PWA | N/A |

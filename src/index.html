@@ -25,6 +25,9 @@
         <span class="logo-text">Pomodoro</span>
       </div>
       <div class="header-right">
+        <button class="icon-btn" id="langToggleBtn" aria-label="Switch language" title="中/EN">
+          <span class="lang-label" id="langLabel">EN</span>
+        </button>
         <button class="icon-btn" id="themeToggleBtn" aria-label="切换主题" title="切换主题">
           <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -37,10 +40,10 @@
 
     <main class="app-main">
       <section class="timer-section" aria-label="番茄钟计时器">
-        <div class="mode-switcher" role="group" aria-label="切换计时模式">
-          <button class="mode-btn active" data-mode="FOCUS" aria-pressed="true">专注</button>
-          <button class="mode-btn" data-mode="SHORT_BREAK" aria-pressed="false">短休息</button>
-          <button class="mode-btn" data-mode="LONG_BREAK" aria-pressed="false">长休息</button>
+        <div class="mode-switcher" role="group" data-i18n-aria="modeGroup" aria-label="切换计时模式">
+          <button class="mode-btn active" data-mode="FOCUS" data-i18n="focus" aria-pressed="true">专注</button>
+          <button class="mode-btn" data-mode="SHORT_BREAK" data-i18n="shortBreak" aria-pressed="false">短休息</button>
+          <button class="mode-btn" data-mode="LONG_BREAK" data-i18n="longBreak" aria-pressed="false">长休息</button>
         </div>
 
         <div class="timer-ring-wrapper">
@@ -49,55 +52,55 @@
             <circle class="timer-ring-progress" id="timerRingProgress" cx="120" cy="120" r="108" />
           </svg>
           <div class="timer-center">
-            <div class="timer-display" id="timerDisplay" aria-live="off" aria-atomic="true" aria-label="剩余时间">25:00</div>
-            <div class="timer-mode-label" id="timerModeIndicator">专注</div>
+            <div class="timer-display" id="timerDisplay" aria-live="off" aria-atomic="true" data-i18n-aria="remaining" aria-label="剩余时间">25:00</div>
+            <div class="timer-mode-label" id="timerModeIndicator" data-i18n="focus">专注</div>
           </div>
         </div>
 
         <div class="timer-controls">
-          <button class="btn btn-ghost" id="timerResetBtn" aria-label="重置计时器">
+          <button class="btn btn-ghost" id="timerResetBtn" data-i18n-aria="reset" aria-label="重置计时器">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
           </button>
-          <button class="btn btn-primary btn-lg" id="timerToggleBtn" aria-label="开始计时">开始</button>
-          <button class="btn btn-ghost" id="timerSkipBtn" aria-label="跳过当前计时">
+          <button class="btn btn-primary btn-lg" id="timerToggleBtn" data-i18n-aria="start" aria-label="开始计时" data-i18n="start">开始</button>
+          <button class="btn btn-ghost" id="timerSkipBtn" data-i18n-aria="skip" aria-label="跳过当前计时">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
           </button>
         </div>
       </section>
 
       <div class="content-grid">
-        <section class="tasks-section card" aria-label="任务列表">
+        <section class="tasks-section card" data-i18n-aria="taskList" aria-label="任务列表">
           <div class="card-header">
-            <h2 class="card-title">任务</h2>
+            <h2 class="card-title" data-i18n="tasks">任务</h2>
             <span class="task-count" id="taskCount">0</span>
           </div>
           <div class="task-input-wrapper">
-            <input type="text" class="task-input" id="taskInput" placeholder="添加新任务..." aria-label="输入新任务" maxlength="200">
-            <button class="btn btn-add" id="taskAddBtn" aria-label="添加任务">
+            <input type="text" class="task-input" id="taskInput" data-i18n-placeholder="addTaskPlaceholder" placeholder="添加新任务..." data-i18n-aria="addTask" aria-label="输入新任务" maxlength="200">
+            <button class="btn btn-add" id="taskAddBtn" data-i18n-aria="addTask" aria-label="添加任务">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
           </div>
           <ul class="task-list" id="taskList" role="list"></ul>
           <div class="task-empty-state" id="taskEmptyState">
             <div class="empty-icon" aria-hidden="true">📋</div>
-            <p>暂无任务</p>
-            <p class="empty-hint">添加一个任务开始专注吧</p>
+            <p data-i18n="noTasks">暂无任务</p>
+            <p class="empty-hint" data-i18n="noTasksHint">添加一个任务开始专注吧</p>
           </div>
         </section>
 
-        <section class="stats-section card" aria-label="专注统计">
+        <section class="stats-section card" data-i18n-aria="statsSection" aria-label="专注统计">
           <div class="card-header">
-            <h2 class="card-title">统计</h2>
+            <h2 class="card-title" data-i18n="stats">统计</h2>
           </div>
           <div class="stats-today-card">
             <div class="stats-today-icon" aria-hidden="true">🔥</div>
             <div class="stats-today-info">
-              <span class="stats-today-label">今日专注</span>
+              <span class="stats-today-label" data-i18n="todayFocus">今日专注</span>
               <span class="stats-today-summary" id="todaySummary">0 次 · 0 分钟</span>
             </div>
           </div>
           <div class="stats-heatmap">
-            <h3 class="heatmap-title">最近 7 天</h3>
+            <h3 class="heatmap-title" data-i18n="last7Days">最近 7 天</h3>
             <div id="heatmap" class="heatmap-grid"></div>
           </div>
         </section>
@@ -105,9 +108,9 @@
     </main>
 
     <footer class="app-footer">
-      <span class="footer-version">v1.1.0</span>
+      <span class="footer-version">v1.2.0</span>
       <span class="footer-sep">·</span>
-      <span class="footer-text">专注每一刻</span>
+      <span class="footer-text" data-i18n="focusEveryMoment">专注每一刻</span>
     </footer>
   </div>
 

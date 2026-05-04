@@ -216,6 +216,14 @@ body {
   outline-offset: 2px;
 }
 
+.lang-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: inherit;
+}
+
 .icon {
   width: 20px;
   height: 20px;
