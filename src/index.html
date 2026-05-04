@@ -3,114 +3,116 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Pomodoro Timer — 专注番茄钟</title>
+  <title>Pomodoro — 专注番茄钟</title>
   <meta name="description" content="极简番茄钟与任务追踪工具，专注工作，高效管理时间。">
-  <meta name="theme-color" content="#1a1a2e">
+  <meta name="theme-color" content="#0f0f14">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="番茄钟">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.json">
-
-  <!-- Security Headers -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none';">
-  <meta http-equiv="X-Frame-Options" content="DENY">
-  <meta http-equiv="X-Content-Type-Options" content="nosniff">
-
-  <!-- CSS -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: file:; script-src 'self' blob: file:; style-src 'self' file:; img-src 'self' file: data: blob:; worker-src 'self' blob: file:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/base.css">
 </head>
 <body>
-  <header class="app-header">
-    <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="切换主题" title="切换主题">🌙</button>
-    <h1 class="app-title">Pomodoro Timer</h1>
-    <p class="app-subtitle">专注番茄钟 · 任务追踪</p>
-  </header>
-
-  <main class="app-main">
-    <!-- Timer Section -->
-    <section class="timer-section" aria-label="番茄钟计时器">
-      <div class="timer-container">
-        <div class="timer-mode-indicator" id="timerModeIndicator">专注</div>
-        <div class="timer-mode-switcher" role="group" aria-label="切换计时模式">
-          <button class="btn btn-mode mode-btn--active" data-mode="FOCUS" aria-pressed="true">专注</button>
-          <button class="btn btn-mode" data-mode="SHORT_BREAK" aria-pressed="false">短休息</button>
-          <button class="btn btn-mode" data-mode="LONG_BREAK" aria-pressed="false">长休息</button>
-        </div>
-        <div class="timer-ring-wrapper">
-          <svg class="timer-ring" viewBox="0 0 200 200" aria-hidden="true">
-            <circle class="timer-ring-bg" cx="100" cy="100" r="90" />
-            <circle class="timer-ring-progress" id="timerRingProgress" cx="100" cy="100" r="90" />
-          </svg>
-          <div class="timer-display" id="timerDisplay">25:00</div>
-        </div>
-        <div class="timer-controls">
-          <button class="btn btn-primary" id="timerToggleBtn" aria-label="开始计时">开始</button>
-          <button class="btn btn-secondary" id="timerResetBtn" aria-label="重置计时器">重置</button>
-          <button class="btn btn-secondary" id="timerSkipBtn" aria-label="跳过当前计时">跳过</button>
-        </div>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="header-left">
+        <span class="logo-mark" aria-hidden="true">🍅</span>
+        <span class="logo-text">Pomodoro</span>
       </div>
-    </section>
-
-    <!-- Task List Section -->
-    <section class="tasks-section" aria-label="任务列表">
-      <h2 class="section-title">任务列表</h2>
-      <div class="task-input-wrapper">
-        <input
-          type="text"
-          class="task-input"
-          id="taskInput"
-          placeholder="添加新任务..."
-          aria-label="输入新任务"
-          maxlength="200"
-        >
-        <button class="btn btn-icon" id="taskAddBtn" aria-label="添加任务">
-          <span aria-hidden="true">+</span>
+      <div class="header-right">
+        <button class="icon-btn" id="themeToggleBtn" aria-label="切换主题" title="切换主题">
+          <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <button class="icon-btn" id="settingsTriggerBtn" aria-label="数据管理" title="数据管理">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
       </div>
-      <ul class="task-list" id="taskList" role="list">
-        <!-- Tasks rendered dynamically -->
-      </ul>
-      <div class="task-empty-state" id="taskEmptyState">
-        <p>暂无任务，添加一个开始专注吧</p>
-      </div>
-    </section>
+    </header>
 
-    <!-- Statistics Section -->
-    <section class="stats-section" aria-label="统计面板">
-      <h2 class="section-title">专注统计</h2>
-      <div class="stats-today-card">
-        <h3 class="stats-today-label">今日专注</h3>
-        <p class="stats-today-summary" id="todaySummary">0 次 · 0 分钟</p>
-      </div>
-      <div class="stats-heatmap" id="statsHeatmap" aria-label="专注热力图">
-        <h3 class="heatmap-title">最近 7 天</h3>
-        <div id="heatmap" class="heatmap-grid">
-          <!-- Heatmap rendered dynamically by stats.js -->
+    <main class="app-main">
+      <section class="timer-section" aria-label="番茄钟计时器">
+        <div class="mode-switcher" role="group" aria-label="切换计时模式">
+          <button class="mode-btn active" data-mode="FOCUS" aria-pressed="true">专注</button>
+          <button class="mode-btn" data-mode="SHORT_BREAK" aria-pressed="false">短休息</button>
+          <button class="mode-btn" data-mode="LONG_BREAK" aria-pressed="false">长休息</button>
         </div>
+
+        <div class="timer-ring-wrapper">
+          <svg class="timer-ring" viewBox="0 0 240 240" aria-hidden="true">
+            <circle class="timer-ring-bg" cx="120" cy="120" r="108" />
+            <circle class="timer-ring-progress" id="timerRingProgress" cx="120" cy="120" r="108" />
+          </svg>
+          <div class="timer-center">
+            <div class="timer-display" id="timerDisplay" aria-live="off" aria-atomic="true" aria-label="剩余时间">25:00</div>
+            <div class="timer-mode-label" id="timerModeIndicator">专注</div>
+          </div>
+        </div>
+
+        <div class="timer-controls">
+          <button class="btn btn-ghost" id="timerResetBtn" aria-label="重置计时器">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          </button>
+          <button class="btn btn-primary btn-lg" id="timerToggleBtn" aria-label="开始计时">开始</button>
+          <button class="btn btn-ghost" id="timerSkipBtn" aria-label="跳过当前计时">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <div class="content-grid">
+        <section class="tasks-section card" aria-label="任务列表">
+          <div class="card-header">
+            <h2 class="card-title">任务</h2>
+            <span class="task-count" id="taskCount">0</span>
+          </div>
+          <div class="task-input-wrapper">
+            <input type="text" class="task-input" id="taskInput" placeholder="添加新任务..." aria-label="输入新任务" maxlength="200">
+            <button class="btn btn-add" id="taskAddBtn" aria-label="添加任务">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+          </div>
+          <ul class="task-list" id="taskList" role="list"></ul>
+          <div class="task-empty-state" id="taskEmptyState">
+            <div class="empty-icon" aria-hidden="true">📋</div>
+            <p>暂无任务</p>
+            <p class="empty-hint">添加一个任务开始专注吧</p>
+          </div>
+        </section>
+
+        <section class="stats-section card" aria-label="专注统计">
+          <div class="card-header">
+            <h2 class="card-title">统计</h2>
+          </div>
+          <div class="stats-today-card">
+            <div class="stats-today-icon" aria-hidden="true">🔥</div>
+            <div class="stats-today-info">
+              <span class="stats-today-label">今日专注</span>
+              <span class="stats-today-summary" id="todaySummary">0 次 · 0 分钟</span>
+            </div>
+          </div>
+          <div class="stats-heatmap">
+            <h3 class="heatmap-title">最近 7 天</h3>
+            <div id="heatmap" class="heatmap-grid"></div>
+          </div>
+        </section>
       </div>
-    </section>
-  </main>
+    </main>
 
-  <footer class="app-footer">
-    <p class="footer-version">v1.0.0</p>
-    <p class="footer-info">专注每一刻</p>
-  </footer>
-
-  <!-- PWA Install Prompt -->
-  <div class="install-prompt" id="installPrompt" aria-live="polite">
-    <span class="install-prompt-icon" aria-hidden="true">🍅</span>
-    <div class="install-prompt-text">
-      <p class="install-prompt-title">安装番茄钟应用</p>
-      <p class="install-prompt-subtitle">添加到主屏幕，随时专注</p>
-    </div>
-    <div class="install-prompt-actions">
-      <button class="btn btn-secondary btn-sm" id="installDismissBtn" type="button">稍后</button>
-      <button class="btn btn-primary btn-sm" id="installBtn" type="button">安装</button>
-    </div>
+    <footer class="app-footer">
+      <span class="footer-version">v1.1.0</span>
+      <span class="footer-sep">·</span>
+      <span class="footer-text">专注每一刻</span>
+    </footer>
   </div>
 
-  <!-- JavaScript -->
-  <script type="module" src="js/app.js"></script>
+  <div id="liveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="js/main.js"></script>
 </body>
 </html>

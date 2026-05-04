@@ -19,8 +19,8 @@
  *
  * Custom events (fired on `document`):
  *   timer:tick            — every second, detail: { remaining, elapsed, mode }
- *   timer:complete        — countdown finished, detail: { mode, completedSessions }
- *   timer:sessionComplete — any session finished, detail: { mode, sessionCount }
+ *   timer:complete        — countdown finished, detail: { mode, completedSessions, actualDuration }
+ *   timer:sessionComplete — any session finished, detail: { mode, sessionCount, actualDuration }
  *   timer:reset           — user reset, detail: { mode }
  *   timer:modeChange      — mode switched, detail: { mode }
  */
@@ -31,9 +31,9 @@
 
 /** Pomodoro modes and their default durations (seconds). */
 export const TIMER_MODES = {
-  FOCUS:       { label: '专注',   duration: 25 * 60 },   // 25 minutes
-  SHORT_BREAK: { label: '短休息', duration:  5 * 60 },   //  5 minutes
-  LONG_BREAK:  { label: '长休息', duration: 15 * 60 },   // 15 minutes
+  FOCUS:       { label: '专注',   duration: 25 * 60 },
+  SHORT_BREAK: { label: '短休息', duration:  5 * 60 },
+  LONG_BREAK:  { label: '长休息', duration: 15 * 60 },
 };
 
 /** Finite-state-machine states for the timer. */
@@ -44,6 +44,8 @@ export const TIMER_STATES = {
   COMPLETED: 'COMPLETED',
 };
 
+const SESSION_COUNTER_KEY = 'pomodoro_pomo_counter';
+
 // ---------------------------------------------------------------------------
 // Internal state
 // ---------------------------------------------------------------------------
@@ -53,8 +55,55 @@ let state      = TIMER_STATES.IDLE;
 let mode       = 'FOCUS';
 let remaining  = TIMER_MODES.FOCUS.duration;
 let elapsed    = 0;
-let focusSessionsCompleted = 0;   // count of completed focus sessions
-let autoStartBreaks = true;       // whether to auto-start break after focus
+let focusSessionsCompleted = loadSessionCounter();
+let autoStartBreaks = true;
+let useFallbackTimer = false;
+let fallbackIntervalId = null;
+let fallbackStartTime = null;
+let fallbackElapsedAtStart = 0;
+let fallbackDuration = 0;
+let sessionStartElapsed = 0;
+
+// ---------------------------------------------------------------------------
+// DOM element cache
+// ---------------------------------------------------------------------------
+
+let domCache = {};
+
+function cacheDomElements() {
+  domCache = {
+    timerSection: document.querySelector('.timer-section'),
+    timerDisplay: document.getElementById('timerDisplay'),
+    timerModeIndicator: document.getElementById('timerModeIndicator'),
+    timerToggleBtn: document.getElementById('timerToggleBtn'),
+    timerRingProgress: document.getElementById('timerRingProgress'),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Session counter persistence
+// ---------------------------------------------------------------------------
+
+function loadSessionCounter() {
+  try {
+    const raw = localStorage.getItem(SESSION_COUNTER_KEY);
+    if (raw !== null) {
+      const val = parseInt(raw, 10);
+      if (!isNaN(val) && val >= 0) return val;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return 0;
+}
+
+function saveSessionCounter() {
+  try {
+    localStorage.setItem(SESSION_COUNTER_KEY, String(focusSessionsCompleted));
+  } catch (e) {
+    // ignore
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -62,17 +111,20 @@ let autoStartBreaks = true;       // whether to auto-start break after focus
 
 /**
  * Initialise the Web Worker and attach message/error handlers.
- * Safe to call multiple times — subsequent calls are no-ops if already initialised.
+ * Falls back to setInterval if Worker creation fails.
  */
 export function initTimer() {
-  if (worker) return;   // already initialised
+  if (worker || useFallbackTimer) return;
+
+  cacheDomElements();
 
   try {
-    // Use classic worker (no { type: 'module' }) so we don't need
-    // CORS-friendly module serving in dev.
     worker = new Worker('js/timer-worker.js');
   } catch (err) {
     console.error('[Timer] Failed to create Web Worker:', err);
+    console.log('[Timer] Falling back to setInterval timer');
+    useFallbackTimer = true;
+    showWorkerFallbackNotice();
     return;
   }
 
@@ -100,62 +152,134 @@ export function initTimer() {
     console.error('[Timer] Worker error:', err.message || err);
   };
 
+  document.addEventListener('timer:sessionComplete', function (e) {
+    if (e.detail && e.detail.mode === 'FOCUS') {
+      fire('timer:incrementPomodoros', { taskId: null });
+    }
+  });
+
   console.log('[Timer] Worker initialised.');
 }
 
-/**
- * Start (or resume) the countdown.
- *
- * @param {number} [duration] - If provided, overrides the current mode duration
- *   and starts a fresh countdown. If omitted while IDLE/COMPLETED the current
- *   mode's default duration is used. If omitted while PAUSED, resumes from
- *   where it left off.
- */
+function showWorkerFallbackNotice() {
+  const liveRegion = document.getElementById('liveRegion');
+  if (liveRegion) {
+    liveRegion.textContent = '计时器使用降级模式，后台标签页时可能不够精确';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fallback timer (setInterval-based)
+// ---------------------------------------------------------------------------
+
+function fallbackStart(duration) {
+  fallbackStop();
+  if (duration !== undefined) {
+    fallbackDuration = duration;
+    fallbackElapsedAtStart = 0;
+  }
+  fallbackStartTime = Date.now();
+  fallbackIntervalId = setInterval(function () {
+    const wallElapsed = Math.floor((Date.now() - fallbackStartTime) / 1000);
+    elapsed = Math.min(fallbackElapsedAtStart + wallElapsed, fallbackDuration);
+    remaining = Math.max(0, fallbackDuration - elapsed);
+    updateUI();
+    fire('timer:tick', { remaining, elapsed, mode });
+    if (remaining <= 0) {
+      fallbackStop();
+      handleComplete();
+    }
+  }, 1000);
+}
+
+function fallbackPause() {
+  if (fallbackIntervalId !== null) {
+    fallbackElapsedAtStart = elapsed;
+    clearInterval(fallbackIntervalId);
+    fallbackIntervalId = null;
+  }
+}
+
+function fallbackReset() {
+  fallbackStop();
+  elapsed = 0;
+  fallbackDuration = 0;
+  fallbackElapsedAtStart = 0;
+}
+
+function fallbackStop() {
+  if (fallbackIntervalId !== null) {
+    clearInterval(fallbackIntervalId);
+    fallbackIntervalId = null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Timer control functions
+// ---------------------------------------------------------------------------
+
 export function startTimer(duration) {
-  if (!worker) initTimer();
+  if (!worker && !useFallbackTimer) initTimer();
   if (state === TIMER_STATES.RUNNING) return;
 
-  if (duration !== undefined) {
-    // Explicit duration = fresh start with custom length
-    remaining = duration;
-    elapsed = 0;
-    worker.postMessage({ command: 'START', duration: duration });
-  } else if (state === TIMER_STATES.PAUSED) {
-    // Resume — worker still has our elapsed preserved
-    worker.postMessage({ command: 'START' });
+  if (useFallbackTimer) {
+    if (duration !== undefined) {
+      remaining = duration;
+      elapsed = 0;
+      fallbackStart(duration);
+    } else if (state === TIMER_STATES.PAUSED) {
+      fallbackStart();
+    } else {
+      remaining = TIMER_MODES[mode].duration;
+      elapsed = 0;
+      fallbackStart(remaining);
+    }
   } else {
-    // IDLE or COMPLETED — use current mode's default
-    remaining = TIMER_MODES[mode].duration;
-    elapsed = 0;
-    worker.postMessage({ command: 'START', duration: remaining });
+    if (duration !== undefined) {
+      remaining = duration;
+      elapsed = 0;
+      worker.postMessage({ command: 'START', duration: duration });
+    } else if (state === TIMER_STATES.PAUSED) {
+      worker.postMessage({ command: 'START' });
+    } else {
+      remaining = TIMER_MODES[mode].duration;
+      elapsed = 0;
+      worker.postMessage({ command: 'START', duration: remaining });
+    }
   }
 
+  sessionStartElapsed = elapsed;
   state = TIMER_STATES.RUNNING;
   updateUI();
 }
 
-/**
- * Pause the countdown without resetting.
- * Call startTimer() (without duration) to resume later.
- */
 export function pauseTimer() {
-  if (!worker || state !== TIMER_STATES.RUNNING) return;
+  if (state !== TIMER_STATES.RUNNING) return;
 
-  worker.postMessage({ command: 'PAUSE' });
+  if (useFallbackTimer) {
+    fallbackPause();
+  } else {
+    if (!worker) return;
+    worker.postMessage({ command: 'PAUSE' });
+  }
+
   state = TIMER_STATES.PAUSED;
   updateUI();
 }
 
-/**
- * Reset the timer back to IDLE using the current mode's initial duration.
- */
 export function resetTimer() {
-  if (!worker) initTimer();
+  if (!worker && !useFallbackTimer) initTimer();
 
-  worker.postMessage({ command: 'RESET' });
+  if (useFallbackTimer) {
+    fallbackReset();
+  } else {
+    worker.postMessage({ command: 'RESET' });
+  }
+
   state    = TIMER_STATES.IDLE;
   remaining = TIMER_MODES[mode].duration;
   elapsed   = 0;
+  sessionStartElapsed = 0;
   updateUI();
   fire('timer:reset', { mode });
 }
@@ -163,34 +287,34 @@ export function resetTimer() {
 /**
  * Skip the current session.
  *
- * - During FOCUS: cancel without counting the session, then switch to the
- *   appropriate break mode (IDLE, not auto-started).
- * - During BREAK: cancel and switch back to FOCUS mode (IDLE, not started).
+ * - During FOCUS: cancel without counting the session, switch to the
+ *   appropriate break based on current completed count (not +1).
+ * - During BREAK: cancel and switch back to FOCUS mode.
  */
 export function skip() {
-  if (!worker) initTimer();
+  if (!worker && !useFallbackTimer) initTimer();
 
-  // Stop the worker regardless of current state
-  worker.postMessage({ command: 'RESET' });
+  if (state === TIMER_STATES.IDLE) {
+    console.log('[Timer] Skip ignored: timer is idle, mode already switched');
+    return;
+  }
+
+  if (useFallbackTimer) {
+    fallbackReset();
+  } else {
+    worker.postMessage({ command: 'RESET' });
+  }
 
   if (mode === 'FOCUS') {
-    // Skip focus — do NOT count this session, switch to break
-    // +1 simulates what the counter would be after this skipped focus,
-    // matching handleComplete's increment-then-check semantics.
-    const nextMode = ((focusSessionsCompleted + 1) % 4 === 0) ? 'LONG_BREAK' : 'SHORT_BREAK';
+    const nextMode = (focusSessionsCompleted % 4 === 0 && focusSessionsCompleted > 0)
+      ? 'LONG_BREAK'
+      : 'SHORT_BREAK';
     switchToMode(nextMode, false);
   } else {
-    // Skip break — go back to focus
     switchToMode('FOCUS', false);
   }
 }
 
-/**
- * Switch the active Pomodoro mode.
- * Resets the timer if it is currently running or paused.
- *
- * @param {'FOCUS'|'SHORT_BREAK'|'LONG_BREAK'} newMode
- */
 export function setMode(newMode) {
   if (!TIMER_MODES[newMode]) {
     console.warn('[Timer] Unknown mode:', newMode);
@@ -198,43 +322,32 @@ export function setMode(newMode) {
   }
   if (newMode === mode && state !== TIMER_STATES.IDLE) return;
 
-  // Reset worker state before switching
-  if (worker && state !== TIMER_STATES.IDLE) {
-    worker.postMessage({ command: 'RESET' });
+  if (useFallbackTimer) {
+    if (state !== TIMER_STATES.IDLE) fallbackReset();
+  } else {
+    if (worker && state !== TIMER_STATES.IDLE) {
+      worker.postMessage({ command: 'RESET' });
+    }
   }
 
   mode      = newMode;
   state     = TIMER_STATES.IDLE;
   remaining = TIMER_MODES[mode].duration;
   elapsed   = 0;
+  sessionStartElapsed = 0;
   updateUI();
   fire('timer:modeChange', { mode });
 }
 
-/**
- * Enable or disable automatic break start after a focus session completes.
- *
- * @param {boolean} enabled - true to auto-start breaks, false to require manual start
- */
 export function setAutoStart(enabled) {
   autoStartBreaks = Boolean(enabled);
 }
 
-/**
- * Reset the completed focus session counter back to zero.
- * Useful for daily resets or when the user wants to re-align
- * long-break cadence.
- */
 export function resetSessionCounter() {
   focusSessionsCompleted = 0;
+  saveSessionCounter();
 }
 
-/**
- * Return a snapshot of all current timer state.
- * Useful for other modules (stats, UI) that need to query the timer.
- *
- * @returns {{ state, mode, remaining, elapsed, duration, sessionCount, autoStart }}
- */
 export function getState() {
   return {
     state,
@@ -251,46 +364,42 @@ export function getState() {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Called when the worker signals that the countdown has reached zero.
- * Increments the session counter (for focus), fires events, and handles
- * auto mode switching for focus → break.
- */
 function handleComplete() {
+  const actualDuration = elapsed || TIMER_MODES[mode].duration;
+
   state = TIMER_STATES.COMPLETED;
 
   if (mode === 'FOCUS') {
     focusSessionsCompleted++;
+    saveSessionCounter();
   }
 
   updateUI();
-  fire('timer:complete', { mode, completedSessions: focusSessionsCompleted });
-  fire('timer:sessionComplete', { mode, sessionCount: focusSessionsCompleted });
+  fire('timer:complete', { mode, completedSessions: focusSessionsCompleted, actualDuration });
+  fire('timer:sessionComplete', { mode, sessionCount: focusSessionsCompleted, actualDuration });
 
-  // Auto mode switching: after focus → appropriate break type
+  announceTimerComplete(mode, focusSessionsCompleted);
+
   if (mode === 'FOCUS') {
     const nextMode = (focusSessionsCompleted % 4 === 0) ? 'LONG_BREAK' : 'SHORT_BREAK';
     switchToMode(nextMode, autoStartBreaks);
   }
 }
 
-/**
- * Internal mode switch without the guard checks of setMode().
- * Used by handleComplete and skip.
- *
- * @param {'FOCUS'|'SHORT_BREAK'|'LONG_BREAK'} newMode
- * @param {boolean} shouldStart - whether to auto-start the timer in the new mode
- */
 function switchToMode(newMode, shouldStart) {
-  // Reset worker state before switching
-  if (worker && state !== TIMER_STATES.IDLE) {
-    worker.postMessage({ command: 'RESET' });
+  if (useFallbackTimer) {
+    if (state !== TIMER_STATES.IDLE) fallbackReset();
+  } else {
+    if (worker && state !== TIMER_STATES.IDLE) {
+      worker.postMessage({ command: 'RESET' });
+    }
   }
 
   mode      = newMode;
   state     = TIMER_STATES.IDLE;
   remaining = TIMER_MODES[mode].duration;
   elapsed   = 0;
+  sessionStartElapsed = 0;
   updateUI();
   fire('timer:modeChange', { mode });
 
@@ -299,10 +408,8 @@ function switchToMode(newMode, shouldStart) {
   }
 }
 
-/** Push the current state into the DOM. */
 function updateUI() {
-  // --- Dynamic ring colour per mode ---
-  const container = document.querySelector('.timer-container');
+  const container = domCache.timerSection || document.querySelector('.timer-section');
   if (container) {
     const modeColors = {
       FOCUS:       'var(--color-accent)',
@@ -312,49 +419,52 @@ function updateUI() {
     container.style.setProperty('--timer-ring-color', modeColors[mode] || modeColors.FOCUS);
   }
 
-  // --- Countdown display (MM:SS) ---
-  const display = document.getElementById('timerDisplay');
+  const display = domCache.timerDisplay || document.getElementById('timerDisplay');
   if (display) {
     const mins = Math.floor(remaining / 60);
     const secs = remaining % 60;
     display.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
-    // Last-minute warning (optional red glow)
     if (remaining <= 60 && remaining > 0 && state === TIMER_STATES.RUNNING) {
       display.classList.add('warning');
     } else {
       display.classList.remove('warning');
     }
+
+    if (state === TIMER_STATES.PAUSED) {
+      display.classList.add('paused');
+    } else {
+      display.classList.remove('paused');
+    }
   }
 
-  // --- Mode indicator ---
-  const indicator = document.getElementById('timerModeIndicator');
+  const indicator = domCache.timerModeIndicator || document.getElementById('timerModeIndicator');
   if (indicator) {
     indicator.textContent = TIMER_MODES[mode].label;
   }
 
-  // --- Toggle button (Start / Pause) ---
-  const toggleBtn = document.getElementById('timerToggleBtn');
+  const toggleBtn = domCache.timerToggleBtn || document.getElementById('timerToggleBtn');
   if (toggleBtn) {
     if (state === TIMER_STATES.RUNNING) {
       toggleBtn.textContent = '暂停';
       toggleBtn.setAttribute('aria-label', '暂停计时');
+    } else if (state === TIMER_STATES.PAUSED) {
+      toggleBtn.textContent = '继续';
+      toggleBtn.setAttribute('aria-label', '继续计时');
     } else {
       toggleBtn.textContent = '开始';
       toggleBtn.setAttribute('aria-label', '开始计时');
     }
   }
 
-  // --- SVG progress ring ---
-  const ring = document.getElementById('timerRingProgress');
+  const ring = domCache.timerRingProgress || document.getElementById('timerRingProgress');
   if (ring) {
     const total = TIMER_MODES[mode].duration;
     const fraction = total > 0 ? remaining / total : 0;
-    const circumference = 2 * Math.PI * 90;   // r = 90 from the SVG viewBox
+    const circumference = 2 * Math.PI * 90;
     ring.style.strokeDasharray = String(circumference);
     ring.style.strokeDashoffset = String(circumference * (1 - fraction));
 
-    // Glow pulse animation: running only
     if (state === TIMER_STATES.RUNNING) {
       ring.classList.add('running');
     } else {
@@ -362,7 +472,6 @@ function updateUI() {
     }
   }
 
-  // --- Mode switcher buttons (highlight active) ---
   const modeButtons = document.querySelectorAll('[data-mode]');
   modeButtons.forEach(function (btn) {
     const btnMode = btn.getAttribute('data-mode');
@@ -376,12 +485,28 @@ function updateUI() {
   });
 }
 
-/**
- * Fire a custom DOM event so other modules can react without direct coupling.
- *
- * @param {string} name   - event name (e.g. 'timer:tick')
- * @param {object} detail - payload attached to event.detail
- */
 function fire(name, detail) {
   document.dispatchEvent(new CustomEvent(name, { detail }));
+}
+
+function announceTimerComplete(mode, sessionCount) {
+  const liveRegion = document.getElementById('liveRegion');
+  if (!liveRegion) return;
+
+  let message = '';
+
+  if (mode === 'FOCUS') {
+    const messages = [
+      `${sessionCount} 个番茄钟已完成`,
+      `专注阶段结束，共完成 ${sessionCount} 个番茄钟`,
+      `计时完成，您已完成 ${sessionCount} 个专注时段`
+    ];
+    message = messages[Math.floor(Math.random() * messages.length)];
+  } else if (mode === 'SHORT_BREAK') {
+    message = `短休息结束`;
+  } else if (mode === 'LONG_BREAK') {
+    message = `长休息结束`;
+  }
+
+  liveRegion.textContent = message;
 }

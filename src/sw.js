@@ -32,6 +32,7 @@ const PRECACHE_URLS = [
   'js/confetti.js',
   'js/pwa.js',
   'js/audio.js',
+  'js/settings.js',
   'manifest.json',
   'icons/icon-192.png',
   'icons/icon-512.png',

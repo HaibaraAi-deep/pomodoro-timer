@@ -7,7 +7,7 @@
 
 ---
 
-## [1.0.0] — 2025-05-01
+## [1.0.0] — 2026-05-01
 
 ### 新增
 
@@ -82,4 +82,4 @@
 
 ---
 
-[1.0.0]: https://github.com/yourusername/pomodoro-timer/releases/tag/v1.0.0
+[1.0.0]: https://github.com/HaibaraAi-deep/pomodoro-timer/releases/tag/v1.0.0

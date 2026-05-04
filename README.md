@@ -1,181 +1,171 @@
 <div align="center">
 
-[English](README.md) | [中文](README.zh-CN.md)
-
-</div>
-
 # 🍅 Pomodoro Timer
 
-> **Zero-dependency PWA** — Precision timer, task tracking, and focus statistics.  
-> Installable on desktop & mobile. Works offline.
+**极简番茄钟与任务追踪 PWA 应用**
+
+暗色优先 · 现代产品风 · 零依赖 · 离线可用
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![PWA](https://img.shields.io/badge/PWA-Ready-blue)
 ![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
----
-
-## ✨ Features
-
-### ⏱ Core Timer
-- **Three timer modes**: 25min Focus, 5min Short Break, 15min Long Break
-- **SVG circular progress ring** — real-time countdown with mode-specific colors (tomato red / green / blue)
-- **Web Worker precision** — stays accurate even when the tab is backgrounded
-- **Auto long break** — enters long break after every 4 focus sessions (configurable)
-- **Last-minute warning** — countdown turns red in the final minute
-- **Breathing glow animation** — pulsing light effect during active sessions
-
-### 📋 Task Management
-- **Add / complete / delete** tasks with instant feedback
-- **Pomodoro counter** 🍅 — each task tracks completed focus sessions
-- **Smart sorting** — incomplete tasks on top, completed tasks at bottom with strikethrough
-- **Smooth animations** — slide-in on add, fade-out on delete
-- **Empty state** — friendly guide text when no tasks exist
-
-### 📊 Statistics
-- **Today's summary card** — shows completed sessions and total focus minutes
-- **7-day heatmap** — GitHub contribution wall style with 5-level intensity coloring
-- **Hover tooltip** — detailed data on each day
-- **Auto-persisted** — data saved to LocalStorage after every session, survives refresh
-
-### 🎨 Theme System
-- **Dark / Light** — one-click toggle via sun/moon icon
-- **System preference** — auto-detects `prefers-color-scheme` on first visit
-- **Persistent** — user choice saved to LocalStorage
-- **Smooth transitions** — 250ms ease transitions on all themed elements
-
-### 📱 PWA (Progressive Web App)
-- **Offline support** — Service Worker with cache-first strategy
-- **Standalone mode** — runs in its own window like a native app
-- **Install prompt** — custom banner slides up from the bottom
-- **Safe Area** — adapts to notched displays and status bars
-
-### 🎊 Interactions & Effects
-- **Confetti celebration** 🎉 — 40-particle CSS animation on session complete
-- **Button feedback** — hover highlight, active scale, all targets ≥ 44×44px (WCAG)
-- **Checkbox animation** — bouncy check with animated checkmark
-- **Responsive layout** — single column on mobile, dual column at ≥768px
+</div>
 
 ---
 
-## 🚀 Usage
+## ✨ 功能特性
 
-### How to Use the Pomodoro Timer
+### ⏱ 计时器
+- **三种模式**：25 分钟专注 / 5 分钟短休息 / 15 分钟长休息
+- **SVG 圆环进度**：模式对应颜色（番茄红 / 翡翠绿 / 靛蓝），发光阴影
+- **精确计时**：setInterval 主线程计时，所有环境可靠运行
+- **自动长休息**：每 4 次专注后自动进入长休息
+- **最后一分钟警告**：数字变红
+- **暂停状态区分**：暂停时数字闪烁
 
-1. **Open the app** — either run it locally (see below) or use the live demo
-2. **Select a timer mode** — Focus (25min), Short Break (5min), or Long Break (15min)
-3. **Click Start** — the countdown begins with a visual progress ring
-4. **Work until the bell** — the timer auto-switches to break mode when focus ends
-5. **Track tasks** — add tasks before or during your session; each completed focus session adds 🍅 to the active task
-6. **Review statistics** — check your daily and weekly focus stats on the heatmap panel
+### 📋 任务管理
+- **添加 / 完成 / 删除**：即时反馈，流畅动画
+- **活动任务选择**：点击任务标题设为当前专注任务
+- **番茄计数器** 🍅：每个任务追踪专注次数
+- **智能排序**：未完成置顶，已完成置底
 
-> **Pro tip**: Install the app for offline use — click the install prompt that slides up after your first completed focus session.
+### 📊 专注统计
+- **今日摘要**：完成次数和总专注分钟数
+- **7 天热力图**：5 级强度着色，悬停显示详情
+- **内存缓存**：避免重复解析 localStorage
 
-### Run Locally
+### 🎨 主题系统
+- **暗色 / 亮色**：一键切换，SVG 图标自适应
+- **Space Grotesk + JetBrains Mono**：现代产品风字体组合
+- **CSS Custom Properties**：完整设计令牌系统
 
-This is a zero-dependency static web app — no build tools required.
+### 📱 PWA
+- **离线支持**：Service Worker 缓存优先
+- **独立窗口**：像原生应用一样运行
 
-**Method 1: Open directly (easiest)**
+### 🔒 安全
+- **CSP 严格策略**：无 `unsafe-inline`
+- **Electron 安全加固**：自定义协议、沙箱
+- **自定义模态对话框**：替代原生 `confirm()`/`alert()`
+
+### 💾 数据管理
+- **数据导出 / 导入**：JSON 备份与恢复
+- **清除数据**：自定义确认对话框
+
+---
+
+## 🚀 快速开始
+
+### 方式一：直接打开
+
+双击 `src/index.html` 即可在浏览器中使用。
+
+### 方式二：本地服务器（推荐）
 
 ```bash
-# Just open src/index.html in your browser
+cd src && python -m http.server 8080
+# 或 npx serve src
 ```
 
-**Method 2: Local static server (recommended for Service Worker)**
+打开 `http://localhost:8080`。
+
+### 方式三：Electron 桌面应用
 
 ```bash
-# Python 3
-cd src
-python -m http.server 8080
-
-# Or Node.js
-npx serve src
-
-# Or VS Code Live Server extension
+npm install && npm start
 ```
-
-Then open `http://localhost:8080` in your browser.
-
-> Service Worker and PWA install require HTTPS or localhost.
-
-### For Developers: Contributing
-
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Browser Support
-
-| Chrome | Firefox | Edge | Safari |
-|:------:|:-------:|:----:|:------:|
-| ≥ 80   | ≥ 80    | ≥ 80 | ≥ 14   |
 
 ---
 
-## 🛠 Tech Stack
+## ⌨️ 键盘快捷键
 
-| Layer | Choice | Rationale |
-|-------|--------|-----------|
-| Language | Vanilla JavaScript (ES2020+) | Zero dependencies, no build step |
-| Styling | CSS + Custom Properties | Lightweight theming, no framework |
-| Timer | Web Worker | Accurate when tab is backgrounded |
-| Storage | LocalStorage | Simple key-value, sufficient for small data |
-| PWA | Service Worker + Manifest | Offline-first, installable |
-| Modules | ES Modules | Native browser support, clean separation |
+| 快捷键 | 功能 |
+|--------|------|
+| `Space` | 开始 / 暂停 |
+| `N` | 聚焦任务输入 |
+| `1` / `2` / `3` | 专注 / 短休息 / 长休息 |
+| `R` | 重置计时器 |
+| `S` | 跳过当前计时 |
+| `Ctrl+,` | 打开数据管理 |
+| `Escape` | 关闭面板 |
 
 ---
 
-## 📁 Project Structure
+## 🛠 技术栈
+
+| 层级 | 选择 | 理由 |
+|------|------|------|
+| 语言 | Vanilla JavaScript (ES2020+) | 零依赖 |
+| 字体 | Space Grotesk + JetBrains Mono | 现代产品风 |
+| 样式 | CSS Custom Properties | 轻量主题系统 |
+| 计时 | setInterval | 全环境可靠 |
+| 存储 | LocalStorage | 简单持久化 |
+| PWA | Service Worker + Manifest | 离线可安装 |
+| 桌面 | Electron | 跨平台 |
+
+---
+
+## 📁 项目结构
 
 ```
-.
-├── README.md                 # Project overview (English)
-├── README.zh-CN.md           # Project overview (Chinese)
-├── CONTRIBUTING.md           # Contribution guide
-├── CHANGELOG.md              # Version history
-├── .gitignore                # Git ignore rules
-├── docs/                     # Architecture, requirements, reports
-└── src/                      # Application source
-    ├── index.html            # SPA entry
-    ├── manifest.json         # PWA manifest
-    ├── sw.js                 # Service Worker (offline cache)
-    ├── icons/                # App icons (192px, 512px)
+├── main.js                   # Electron 主进程
+├── package.json
+├── docs/                     # 文档
+└── src/
+    ├── index.html            # SPA 入口
+    ├── manifest.json         # PWA 清单
+    ├── sw.js                 # Service Worker
+    ├── icons/
     ├── css/
-    │   └── base.css          # Full stylesheet (31 KB)
-    └── js/                   # 9 ES modules
-        ├── app.js            # Entry, wires all modules
-        ├── timer.js          # Timer controller + state machine
-        ├── timer-worker.js   # Web Worker background timer
-        ├── tasks.js          # Task CRUD + persistence
-        ├── stats.js          # Focus stats + heatmap
-        ├── theme.js          # Dark/light theme toggle
-        ├── audio.js          # Audio notifications
-        ├── confetti.js       # Confetti animation
-        └── pwa.js            # Install prompt
+    │   └── base.css          # 完整样式（设计令牌 + 组件）
+    └── js/
+        ├── main.js           # IIFE 打包文件（直接打开用）
+        ├── app.js            # ES Module 入口
+        ├── timer.js          # 计时器控制器
+        ├── timer-worker.js   # Web Worker
+        ├── tasks.js          # 任务 CRUD
+        ├── stats.js          # 专注统计
+        ├── settings.js       # 数据管理
+        ├── theme.js          # 主题切换
+        ├── audio.js          # 音频通知
+        ├── confetti.js       # 撒花动画
+        └── pwa.js            # 安装提示
 ```
 
 ---
 
-## 💾 Data Storage
+## 🎨 设计系统
 
-All data is stored in browser LocalStorage — fully offline, no server.
+### 色彩
 
-| Key | Content | Schema |
-|-----|---------|--------|
-| `pomodoro_tasks` | Task list | `[{id, title, completed, pomodoros, createdAt, completedAt}]` |
-| `pomodoro_stats` | Focus records | `[{date, duration, taskId, timestamp}]` |
-| `pomodoro_theme` | Theme preference | `"dark" \| "light"` |
+| 用途 | 暗色 | 亮色 |
+|------|------|------|
+| 背景 | `#0f0f14` | `#f5f5f7` |
+| 卡片 | `#1c1c28` | `#ffffff` |
+| 强调 | `#e8433e` | `#d63031` |
+| 成功 | `#2dd4a0` | `#00b894` |
+| 长休息 | `#6c8cff` | `#4a6cf7` |
+
+### 字体
+
+- **UI 文字**：Space Grotesk（几何无衬线，现代产品感）
+- **计时器数字**：JetBrains Mono（等宽，清晰可读）
 
 ---
 
-## 👥 Contributors
+## 💾 数据存储
 
-- [HaibaraAi-deep](https://github.com/HaibaraAi-deep) — Project Creator & Product Definition
-
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
+| 键 | 内容 |
+|----|------|
+| `pomodoro_tasks` | 任务列表 |
+| `pomodoro_stats` | 专注记录 |
+| `pomodoro_theme` | 主题偏好 |
+| `pomodoro_pomo_counter` | 专注计数 |
+| `pomodoro_active_task` | 活动任务 ID |
 
 ---
 
-## 📄 License
+## 📄 许可证
 
 [MIT](LICENSE)
-
-Copyright (c) 2026 Pomodoro Timer Contributors

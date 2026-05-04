@@ -15,6 +15,7 @@
  *   getDailyStats(date)  — { date, sessions, totalMinutes, records } for a given date
  *   getHeatmapLevel(minutes) — 0-4 level index for heatmap colouring
  *   renderStats()        — update the DOM (today card + heatmap)
+ *   invalidateStatsCache() — mark cache as stale
  */
 
 import { TIMER_MODES } from './timer.js';
@@ -25,31 +26,95 @@ import { TIMER_MODES } from './timer.js';
 
 const STORAGE_KEY = 'pomodoro_stats';
 
-/** Minutes thresholds for heatmap colour levels. */
 const HEATMAP_THRESHOLDS = [0, 25, 50, 100, 150];
+
+// ---------------------------------------------------------------------------
+// Memory cache
+// ---------------------------------------------------------------------------
+
+let statsCache = null;
+let statsCacheDirty = true;
+
+export function invalidateStatsCache() {
+  statsCacheDirty = true;
+  statsCache = null;
+}
 
 // ---------------------------------------------------------------------------
 // LocalStorage helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Read all session records from LocalStorage.
- * @returns {Array<{date: string, duration: number, taskId: string|null, timestamp: string}>}
- */
-export function getStats() {
+function readRawStats() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      console.warn('[Stats] LocalStorage data is not an array, clearing corrupted data');
+      return [];
+    }
+    const validRecords = [];
+    parsed.forEach((record, index) => {
+      if (typeof record !== 'object' || record === null) {
+        console.warn(`[Stats] Invalid record at index ${index}, skipping`);
+        return;
+      }
+      if (typeof record.date !== 'string') {
+        console.warn(`[Stats] Record at index ${index} has invalid date, skipping`);
+        return;
+      }
+      if (typeof record.duration !== 'number') {
+        console.warn(`[Stats] Record at index ${index} has invalid duration, defaulting to 0`);
+        record.duration = 0;
+      }
+      if (record.duration < 0) {
+        console.warn(`[Stats] Record at index ${index} has negative duration, clamping to 0`);
+        record.duration = 0;
+      }
+      if (typeof record.taskId !== 'string' && record.taskId !== null) {
+        console.warn(`[Stats] Record at index ${index} has invalid taskId, defaulting to null`);
+        record.taskId = null;
+      }
+      if (typeof record.timestamp !== 'string') {
+        console.warn(`[Stats] Record at index ${index} has invalid timestamp, skipping`);
+        return;
+      }
+      if (!record.timestamp.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+        console.warn(`[Stats] Record at index ${index} has invalid timestamp format, skipping`);
+        return;
+      }
+      validRecords.push(record);
+    });
+    return validRecords;
   } catch (e) {
     console.warn('[Stats] Failed to read from LocalStorage:', e);
     return [];
   }
 }
 
-/**
- * Persist the full records array back to LocalStorage.
- * @param {Array} records
- */
+export function getStats() {
+  if (!statsCacheDirty && statsCache !== null) {
+    return statsCache;
+  }
+
+  const validRecords = readRawStats();
+
+  const maxAgeDays = 365;
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+  const cutoffDateString = cutoffDate.toISOString().split('T')[0];
+
+  const filteredRecords = validRecords.filter(record => record.date >= cutoffDateString);
+
+  if (filteredRecords.length !== validRecords.length) {
+    saveStats(filteredRecords);
+  }
+
+  statsCache = filteredRecords;
+  statsCacheDirty = false;
+  return filteredRecords;
+}
+
 function saveStats(records) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
@@ -59,15 +124,10 @@ function saveStats(records) {
   }
 }
 
-/**
- * Show a storage warning banner at the top of the statistics section.
- * The banner is dismissible and auto-hides after 3 seconds.
- */
 function showStorageWarning() {
   const statsSection = document.querySelector('.stats-section');
   if (!statsSection) return;
 
-  // Avoid stacking multiple warnings
   const existing = statsSection.querySelector('.storage-warning');
   if (existing) return;
 
@@ -80,7 +140,6 @@ function showStorageWarning() {
     'font-size:14px;line-height:1.5;position:relative;animation:fadeIn 0.3s ease;';
   warning.textContent = '⚠️ 存储空间不足，统计数据可能无法保存。请清理浏览器数据。';
 
-  // Close button
   const closeBtn = document.createElement('button');
   closeBtn.className = 'storage-warning-close';
   closeBtn.setAttribute('aria-label', '关闭警告');
@@ -94,10 +153,8 @@ function showStorageWarning() {
   });
   warning.appendChild(closeBtn);
 
-  // Insert at the top of the stats section (before first child)
   statsSection.insertBefore(warning, statsSection.firstChild);
 
-  // Auto-dismiss after 3 seconds
   setTimeout(function () {
     if (warning.parentNode) {
       warning.remove();
@@ -109,11 +166,6 @@ function showStorageWarning() {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Format a Date object to "YYYY-MM-DD".
- * @param {Date} date
- * @returns {string}
- */
 function formatDate(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -121,21 +173,11 @@ function formatDate(date) {
   return `${y}-${m}-${d}`;
 }
 
-/**
- * Return the day-of-week label in Chinese.
- * @param {Date} date
- * @returns {string} e.g. "周一"
- */
 function weekdayLabel(date) {
   const labels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
   return labels[date.getDay()];
 }
 
-/**
- * Return a short date label like "04/28".
- * @param {Date} date
- * @returns {string}
- */
 function shortDateLabel(date) {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
@@ -146,10 +188,6 @@ function shortDateLabel(date) {
 // Public query API
 // ---------------------------------------------------------------------------
 
-/**
- * Get statistics for today.
- * @returns {{ sessions: number, totalMinutes: number }}
- */
 export function getTodayStats() {
   const today = formatDate(new Date());
   const stats = getStats();
@@ -161,16 +199,12 @@ export function getTodayStats() {
   };
 }
 
-/**
- * Get daily aggregated stats for the last 7 days (including today).
- * Returns data from oldest to newest (index 0 is 6 days ago).
- * @returns {Array<{ date: string, sessions: number, minutes: number }>}
- */
 export function getWeeklyStats() {
   const stats = getStats();
   const result = [];
+  const now = new Date();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date();
+    const d = new Date(now);
     d.setDate(d.getDate() - i);
     const dateStr = formatDate(d);
     const daySessions = stats.filter(s => s.date === dateStr);
@@ -184,11 +218,6 @@ export function getWeeklyStats() {
   return result;
 }
 
-/**
- * Get detailed stats for a specific date.
- * @param {string} date - "YYYY-MM-DD"
- * @returns {{ date: string, sessions: number, totalMinutes: number, records: Array }}
- */
 export function getDailyStats(date) {
   const stats = getStats();
   const daySessions = stats.filter(s => s.date === date);
@@ -201,11 +230,6 @@ export function getDailyStats(date) {
   };
 }
 
-/**
- * Map total minutes to a heatmap colour level (0-4).
- * @param {number} minutes
- * @returns {number} 0 = empty, 4 = deepest colour
- */
 export function getHeatmapLevel(minutes) {
   if (minutes <= 0) return 0;
   if (minutes <= 25) return 1;
@@ -218,39 +242,30 @@ export function getHeatmapLevel(minutes) {
 // Session recording
 // ---------------------------------------------------------------------------
 
-/**
- * Record a completed focus session.
- * @param {number} duration - session duration in seconds
- */
 function recordSession(duration) {
   const stats = getStats();
   const now = new Date();
+  const actualDuration = duration || TIMER_MODES.FOCUS.duration;
   const record = {
     date: formatDate(now),
-    duration: duration || TIMER_MODES.FOCUS.duration,
+    duration: actualDuration,
     taskId: null,
     timestamp: now.toISOString(),
   };
   stats.push(record);
   saveStats(stats);
+  invalidateStatsCache();
 }
 
 // ---------------------------------------------------------------------------
 // DOM rendering
 // ---------------------------------------------------------------------------
 
-/**
- * Update the stats section in the DOM — today's summary card and 7-day heatmap.
- * Safe to call repeatedly; used on initial load and after each session completes.
- */
 export function renderStats() {
   renderTodayCard();
   renderHeatmap();
 }
 
-/**
- * Render the today summary card: "N 次 · M 分钟"
- */
 function renderTodayCard() {
   const el = document.getElementById('todaySummary');
   if (!el) return;
@@ -266,16 +281,12 @@ function renderTodayCard() {
   }
 }
 
-/**
- * Render the 7-day heatmap grid inside #heatmap.
- */
 function renderHeatmap() {
   const container = document.getElementById('heatmap');
   if (!container) return;
 
-  const weekly = getWeeklyStats(); // [{ date, sessions, minutes }]
+  const weekly = getWeeklyStats();
 
-  // Build DOM
   container.innerHTML = '';
 
   weekly.forEach(day => {
@@ -284,22 +295,18 @@ function renderHeatmap() {
     const col = document.createElement('div');
     col.className = 'heatmap-column';
 
-    // Colour block
     const block = document.createElement('div');
     block.className = `heatmap-block heatmap-level-${level}`;
     block.setAttribute('title', `${day.date}\n${day.sessions} 次 · ${day.minutes} 分钟`);
     block.setAttribute('aria-label', `${day.date}: ${day.sessions} 次, ${day.minutes} 分钟`);
 
-    // Date label (weekday + short date)
     const label = document.createElement('span');
     label.className = 'heatmap-label';
 
-    // Parse day.date string to get weekday
     const parts = day.date.split('-');
     const d = new Date(+parts[0], +parts[1] - 1, +parts[2]);
     label.textContent = shortDateLabel(d);
 
-    // Weekend label
     const weekdayEl = document.createElement('span');
     weekdayEl.className = 'heatmap-weekday';
     weekdayEl.textContent = weekdayLabel(d);
@@ -315,16 +322,17 @@ function renderHeatmap() {
 // Initialization
 // ---------------------------------------------------------------------------
 
-/**
- * Attach event listeners so that every completed FOCUS session is recorded
- * and the stats panel is re-rendered.
- */
 export function initStats() {
   document.addEventListener('timer:sessionComplete', function (e) {
-    const { mode } = e.detail;
+    const { mode, actualDuration } = e.detail;
     if (mode === 'FOCUS') {
-      recordSession(TIMER_MODES.FOCUS.duration);
+      recordSession(actualDuration);
       renderStats();
     }
+  });
+
+  document.addEventListener('settings:dataChanged', function () {
+    invalidateStatsCache();
+    renderStats();
   });
 }

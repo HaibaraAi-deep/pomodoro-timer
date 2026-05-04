@@ -25,24 +25,48 @@ import {
   deleteTask,
   toggleTask,
   getTasks,
+  getTaskById,
+  incrementPomodoros,
+  getActiveTaskId,
+  setActiveTaskId,
+  reloadTasks,
+  sanitizeForAria,
 } from './tasks.js';
 
 import {
   initStats,
   renderStats,
+  invalidateStatsCache,
 } from './stats.js';
 
 import { initTheme } from './theme.js';
 import { initConfetti } from './confetti.js';
 import { initPWA } from './pwa.js';
 import { initAudio } from './audio.js';
+import { initSettings } from './settings.js';
 
-/**
- * Initialize the application.
- * Called when the DOM is fully parsed and ready.
- */
+// ---------------------------------------------------------------------------
+// Global Error Handling
+// ---------------------------------------------------------------------------
+
+function setupGlobalErrorHandling() {
+  window.addEventListener('error', function (e) {
+    console.error('[Pomodoro] Uncaught error:', e.error || e.message);
+  });
+
+  window.addEventListener('unhandledrejection', function (e) {
+    console.error('[Pomodoro] Unhandled promise rejection:', e.reason);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// App Initialization
+// ---------------------------------------------------------------------------
+
 function initApp() {
   console.log('[Pomodoro] App initializing...');
+
+  setupGlobalErrorHandling();
 
   // --- Timer module ---
   initTimer();
@@ -76,9 +100,64 @@ function initApp() {
   initAudio();
   console.log('[Pomodoro] Audio initialised.');
 
+  // --- Settings module (data export/clear) ---
+  initSettings();
+  console.log('[Pomodoro] Settings initialised.');
+
+  // --- Listen for timer:incrementPomodoros event ---
+  document.addEventListener('timer:incrementPomodoros', function () {
+    const activeId = getActiveTaskId();
+    if (activeId) {
+      incrementPomodoros(activeId);
+      console.log('[App] Incremented pomodoros for active task:', activeId);
+    } else {
+      const allTasks = getTasks();
+      const firstIncomplete = allTasks.find(t => !t.completed);
+      if (firstIncomplete) {
+        incrementPomodoros(firstIncomplete.id);
+        console.log('[App] Incremented pomodoros for first incomplete task:', firstIncomplete.title);
+      }
+    }
+    renderTaskList();
+  });
+
+  // --- Listen for settings:dataChanged ---
+  document.addEventListener('settings:dataChanged', function () {
+    reloadTasks();
+    renderTaskList();
+    resetTimer();
+    resetSessionCounter();
+  });
+
   // --- Keyboard shortcuts ---
   setupKeyboardShortcuts();
   console.log('[Pomodoro] Keyboard shortcuts initialised.');
+
+  // --- Settings shortcut (Control/Cmd + ,) ---
+  document.addEventListener('keydown', function (e) {
+    const target = e.target;
+    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON';
+    if (isInput && e.key !== ',') return;
+
+    if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+      e.preventDefault();
+      initSettings();
+      const settingsContainer = document.getElementById('settingsContainer');
+      if (settingsContainer) {
+        settingsContainer.classList.remove('hidden');
+      }
+    }
+  });
+
+  // --- Settings container close on Escape ---
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      const settingsContainer = document.getElementById('settingsContainer');
+      if (settingsContainer && !settingsContainer.classList.contains('hidden')) {
+        settingsContainer.classList.add('hidden');
+      }
+    }
+  });
 
   // --- Service Worker registration ---
   registerServiceWorker();
@@ -90,10 +169,6 @@ function initApp() {
 // Timer button wiring
 // ---------------------------------------------------------------------------
 
-/**
- * Attach click handlers to the timer control buttons already present in the
- * HTML so the user can interact with the timer immediately.
- */
 function wireTimerButtons() {
   const toggleBtn = document.getElementById('timerToggleBtn');
   const resetBtn  = document.getElementById('timerResetBtn');
@@ -116,10 +191,6 @@ function wireTimerButtons() {
   }
 }
 
-/**
- * Attach click handlers to the mode switcher buttons so the user can
- * switch between FOCUS, SHORT_BREAK, and LONG_BREAK modes.
- */
 function wireModeButtons() {
   const modeButtons = document.querySelectorAll('[data-mode]');
 
@@ -133,9 +204,6 @@ function wireModeButtons() {
   });
 }
 
-/**
- * Attach click handler to the skip button.
- */
 function wireSkipButton() {
   const skipBtn = document.getElementById('timerSkipBtn');
   if (skipBtn) {
@@ -149,53 +217,107 @@ function wireSkipButton() {
 // Task wiring
 // ---------------------------------------------------------------------------
 
-/**
- * Initialize the task list: render existing tasks from storage, then attach
- * event listeners for the add button and input field.
- */
 function initTasks() {
   renderTaskList();
   wireTaskInput();
 }
 
-/**
- * Re-render the full task list from the data store.
- * Called after every mutation (add / delete / toggle).
- */
 function renderTaskList() {
   const listEl = document.getElementById('taskList');
   const emptyEl = document.getElementById('taskEmptyState');
 
   if (!listEl) return;
 
-  const tasks = getTasks();
+  const allTasks = getTasks();
+  const currentActiveId = getActiveTaskId();
 
-  // Clear existing list
-  listEl.innerHTML = '';
+  // Diff-based update: compare existing DOM with data
+  const existingItems = listEl.querySelectorAll('.task-item');
+  const existingMap = new Map();
+  existingItems.forEach(function (li) {
+    existingMap.set(li.getAttribute('data-task-id'), li);
+  });
+
+  const taskIds = new Set(allTasks.map(t => t.id));
+
+  // Remove items that no longer exist in data
+  existingMap.forEach(function (li, id) {
+    if (!taskIds.has(id)) {
+      li.remove();
+    }
+  });
+
+  // Add or update items in order
+  allTasks.forEach(function (task, index) {
+    const existingLi = existingMap.get(task.id);
+
+    if (existingLi) {
+      // Update existing item
+      const checkbox = existingLi.querySelector('.task-checkbox');
+      if (checkbox) checkbox.checked = task.completed;
+
+      const titleSpan = existingLi.querySelector('.task-title');
+      if (titleSpan) titleSpan.textContent = task.title;
+
+      const pomoBadge = existingLi.querySelector('.task-pomodoros');
+      if (pomoBadge) {
+        if (task.pomodoros > 0) {
+          pomoBadge.textContent = String.fromCharCode(0x1F345) + ' ' + task.pomodoros;
+          pomoBadge.classList.remove('hidden');
+        } else {
+          pomoBadge.classList.add('hidden');
+        }
+      }
+
+      const deleteBtn = existingLi.querySelector('.task-delete-btn');
+      if (deleteBtn) {
+        deleteBtn.setAttribute('aria-label', '删除任务: ' + sanitizeForAria(task.title));
+      }
+
+      if (task.completed) {
+        existingLi.classList.add('completed');
+      } else {
+        existingLi.classList.remove('completed');
+      }
+
+      existingLi.classList.remove('slide-in');
+
+      // Update active task highlight
+      if (task.id === currentActiveId && !task.completed) {
+        existingLi.classList.add('task-active');
+      } else {
+        existingLi.classList.remove('task-active');
+      }
+
+      // Ensure correct order
+      const currentItems = listEl.querySelectorAll('.task-item');
+      if (currentItems[index] !== existingLi) {
+        listEl.insertBefore(existingLi, currentItems[index] || null);
+      }
+    } else {
+      // Create new item
+      const li = createTaskElement(task, currentActiveId);
+      const currentItems = listEl.querySelectorAll('.task-item');
+      if (currentItems[index]) {
+        listEl.insertBefore(li, currentItems[index]);
+      } else {
+        listEl.appendChild(li);
+      }
+    }
+  });
 
   // Toggle empty state visibility
-  if (tasks.length === 0) {
+  if (allTasks.length === 0) {
     if (emptyEl) emptyEl.classList.remove('hidden');
-    return;
+  } else {
+    if (emptyEl) emptyEl.classList.add('hidden');
   }
-
-  if (emptyEl) emptyEl.classList.add('hidden');
-
-  tasks.forEach(function (task) {
-    const li = createTaskElement(task);
-    listEl.appendChild(li);
-  });
 }
 
-/**
- * Create a single <li> element for a given task.
- *
- * @param {object} task — { id, title, completed, pomodoros }
- * @returns {HTMLLIElement}
- */
-function createTaskElement(task) {
+function createTaskElement(task, activeId) {
   const li = document.createElement('li');
-  li.className = 'task-item slide-in' + (task.completed ? ' completed' : '');
+  li.className = 'task-item slide-in' + (task.completed ? ' completed' : '') +
+    (task.id === activeId && !task.completed ? ' task-active' : '');
   li.setAttribute('data-task-id', task.id);
 
   // Checkbox
@@ -205,16 +327,29 @@ function createTaskElement(task) {
   checkbox.checked = task.completed;
   checkbox.setAttribute('aria-label', task.completed ? '标记未完成' : '标记完成');
   checkbox.addEventListener('change', function () {
-    toggleTask(task.id);
-    renderTaskList();
+    const updatedTask = toggleTask(task.id);
+    if (updatedTask) {
+      updateLiveRegion(updatedTask.completed
+        ? `任务 "${updatedTask.title}" 已标记为完成`
+        : `任务 "${updatedTask.title}" 已标记为未完成`);
+      renderTaskList();
+    }
   });
 
-  // Title
+  // Title (clickable to set as active task)
   const titleSpan = document.createElement('span');
   titleSpan.className = 'task-title';
   titleSpan.textContent = task.title;
+  titleSpan.addEventListener('click', function () {
+    if (!task.completed) {
+      setActiveTaskId(task.id);
+      renderTaskList();
+      updateLiveRegion(`已将 "${task.title}" 设为当前专注任务`);
+    }
+  });
+  titleSpan.setAttribute('title', '点击设为当前专注任务');
 
-  // Pomodoro count badge (only show if > 0)
+  // Pomodoro count badge
   const pomoBadge = document.createElement('span');
   pomoBadge.className = 'task-pomodoros';
   if (task.pomodoros > 0) {
@@ -226,15 +361,21 @@ function createTaskElement(task) {
   // Delete button
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'task-delete-btn';
-  deleteBtn.setAttribute('aria-label', '删除任务: ' + task.title);
-  deleteBtn.textContent = '\u00D7';   // multiplication sign ×
+  deleteBtn.setAttribute('aria-label', '删除任务: ' + sanitizeForAria(task.title));
+  deleteBtn.textContent = '\u00D7';
   deleteBtn.addEventListener('click', function (e) {
-    e.stopPropagation();   // prevent any parent click handlers
-    // Animate out then remove
+    e.stopPropagation();
+
+    deleteBtn.disabled = true;
     li.classList.add('fade-out');
+
     li.addEventListener('animationend', function handler() {
       li.removeEventListener('animationend', handler);
-      deleteTask(task.id);
+      deleteBtn.disabled = false;
+      const success = deleteTask(task.id);
+      if (success) {
+        updateLiveRegion(`任务 "${task.title}" 已删除`);
+      }
       renderTaskList();
     }, { once: true });
   });
@@ -247,35 +388,27 @@ function createTaskElement(task) {
   return li;
 }
 
-/**
- * Attach event listeners to the task input and add button so the user can
- * create new tasks by pressing Enter or clicking the + button.
- */
 function wireTaskInput() {
   const inputEl = document.getElementById('taskInput');
   const addBtn = document.getElementById('taskAddBtn');
 
   if (!inputEl) return;
 
-  /**
-   * Attempt to add a task from the current input value.
-   * Trims whitespace; does nothing for empty input.
-   * Clears the input on success.
-   */
   function handleAdd() {
     const raw = inputEl.value;
     if (!raw.trim()) return;
     try {
-      addTask(raw);
+      const task = addTask(raw);
       inputEl.value = '';
+
+      updateLiveRegion(`已添加任务: ${task.title}`);
+
       renderTaskList();
     } catch (err) {
-      // addTask throws on empty title, we already guard above
       console.warn('[Tasks] Add failed:', err.message);
     }
   }
 
-  // Enter key
   inputEl.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -283,9 +416,19 @@ function wireTaskInput() {
     }
   });
 
-  // Add button click
   if (addBtn) {
     addBtn.addEventListener('click', handleAdd);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Live Region for Screen Reader Notifications
+// ---------------------------------------------------------------------------
+
+function updateLiveRegion(message) {
+  const liveRegion = document.getElementById('liveRegion');
+  if (liveRegion) {
+    liveRegion.textContent = message;
   }
 }
 
@@ -293,10 +436,6 @@ function wireTaskInput() {
 // Service Worker registration
 // ---------------------------------------------------------------------------
 
-/**
- * Register the Service Worker for offline support and caching.
- * Safely no-ops in unsupported browsers.
- */
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) {
     console.warn('[Pomodoro] Service Worker not supported in this browser.');
@@ -304,11 +443,10 @@ function registerServiceWorker() {
   }
 
   navigator.serviceWorker
-    .register('sw.js', { scope: '/' })
+    .register('sw.js')
     .then(function (registration) {
       console.log('[Pomodoro] Service Worker registered with scope:', registration.scope);
 
-      // Check for updates on page load
       registration.addEventListener('updatefound', function () {
         var installingWorker = registration.installing;
         if (!installingWorker) return;
@@ -329,33 +467,16 @@ function registerServiceWorker() {
 // Keyboard shortcuts
 // ---------------------------------------------------------------------------
 
-/**
- * Register global keyboard shortcuts for the application.
- *
- * Shortcuts:
- *   Space  — toggle timer start/pause (not when inside input/textarea)
- *   N      — focus the task input (#taskInput)
- *   1      — switch to FOCUS mode
- *   2      — switch to SHORT_BREAK mode
- *   3      — switch to LONG_BREAK mode
- *   R      — reset timer
- *   S      — skip current phase
- *
- * Shortcuts are suppressed when the user is typing in an <input> or <textarea>,
- * with the exception of N which always focuses the task input.
- */
 function setupKeyboardShortcuts() {
   document.addEventListener('keydown', function (e) {
     var target = e.target;
     var isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
 
-    // Helper: ignore events from input/textarea unless this is the N key
     function isTyping() {
       return isInput && e.key !== 'n' && e.key !== 'N';
     }
 
     switch (e.key) {
-      // Space — toggle start/pause (prevent page scroll)
       case ' ':
         if (isTyping()) return;
         e.preventDefault();
@@ -369,10 +490,8 @@ function setupKeyboardShortcuts() {
         }
         break;
 
-      // N — focus the task input (always works, even when inside another input)
       case 'n':
       case 'N':
-        // Only handle N when it's a plain shortcut (no modifier keys)
         if (e.ctrlKey || e.metaKey || e.altKey) return;
         {
           var taskInputEl = document.getElementById('taskInput');
@@ -384,32 +503,27 @@ function setupKeyboardShortcuts() {
         }
         break;
 
-      // 1 — FOCUS mode
       case '1':
         if (isTyping()) return;
         setMode('FOCUS');
         break;
 
-      // 2 — SHORT_BREAK mode
       case '2':
         if (isTyping()) return;
         setMode('SHORT_BREAK');
         break;
 
-      // 3 — LONG_BREAK mode
       case '3':
         if (isTyping()) return;
         setMode('LONG_BREAK');
         break;
 
-      // R — reset timer
       case 'r':
       case 'R':
         if (isTyping()) return;
         resetTimer();
         break;
 
-      // S — skip current phase
       case 's':
       case 'S':
         if (isTyping()) return;
@@ -417,7 +531,6 @@ function setupKeyboardShortcuts() {
         break;
 
       default:
-        // no-op for unhandled keys
         break;
     }
   });
@@ -430,6 +543,5 @@ function setupKeyboardShortcuts() {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initApp);
 } else {
-  // DOM already loaded (script injected after load)
   initApp();
 }
