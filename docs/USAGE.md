@@ -1,121 +1,121 @@
-# 📖 Usage Guide / 使用说明
+[**English**](USAGE.en.md) | 中文
 
 ---
 
-## 1. Installation / 安装
+# 📖 使用说明
 
-### Clone / 克隆
+## 1. 安装
+
+### 克隆仓库
 
 ```bash
 git clone https://github.com/HaibaraAi-deep/pomodoro-timer.git
 cd pomodoro-timer
 ```
 
-### Browser / 浏览器
+### 浏览器使用
 
-**Direct open / 直接打开**: Double-click `src/index.html`
+**直接打开**：双击 `src/index.html`
 
-**Local server / 本地服务器**:
+**本地服务器**：
 ```bash
 cd src && python -m http.server 8080
-# or: npx serve src
+# 或 npx serve src
 ```
-Open `http://localhost:8080`
+打开 `http://localhost:8080`
 
-### Electron Desktop (Windows Only) / 桌面应用（仅 Windows）
+### Electron 桌面应用（仅 Windows）
 
 ```bash
 npm install && npm start
 ```
 
-> ⚠️ macOS and Linux are **not supported** for the Electron build. Use the browser version on those platforms.
+> ⚠️ macOS 和 Linux **不支持** Electron 桌面版，请使用浏览器版本。
 
 ---
 
-## 2. Language / 语言
+## 2. 语言切换
 
-Click **EN/中** in the header to switch between Chinese (default) and English. Your choice persists across sessions.
-
-点击顶栏 **EN/中** 切换语言，默认中文，选择自动保存。
+点击顶栏 **EN/中** 按钮切换中英文，默认中文。选择自动保存，下次打开保持不变。
 
 ---
 
-## 3. Timer / 计时器
+## 3. 计时器
 
-| Mode / 模式 | Duration / 时长 | Color / 颜色 |
-|---|---|---|
-| Focus / 专注 | 25 min | Red / 红 |
-| Short Break / 短休息 | 5 min | Green / 绿 |
-| Long Break / 长休息 | 15 min | Blue / 蓝 |
+| 模式 | 时长 | 颜色 |
+|------|------|------|
+| 专注 | 25 分钟 | 红色 |
+| 短休息 | 5 分钟 | 绿色 |
+| 长休息 | 15 分钟 | 蓝色 |
 
-- **Start/Pause**: Click button or `Space`
-- **Reset**: Click icon or `R`
-- **Skip**: Click icon or `S`
-- Auto long break every 4 focus sessions
-- Warning: last 60 seconds → red text
-- Paused: blinking display
-
----
-
-## 4. Tasks / 任务
-
-- **Add**: Type + `Enter` or click `+`
-- **Set active**: Click task title → red border, pomodoros count here
-- **Complete**: Click checkbox
-- **Delete**: Hover → `×` (always visible on touch devices)
+- **开始/暂停**：点击按钮或按 `Space`
+- **重置**：点击图标或按 `R`
+- **跳过**：点击图标或按 `S`
+- 每 4 次专注自动进入长休息
+- 最后 60 秒数字变红
+- 暂停时数字闪烁
 
 ---
 
-## 5. Stats / 统计
+## 4. 任务管理
 
-- Today's focus: sessions + minutes
-- 7-day heatmap: 5 intensity levels
-- Auto-persisted, survives refresh
-
----
-
-## 6. Data Management / 数据管理
-
-Click ⚙ in header:
-
-- **Export**: Download JSON backup
-- **Import**: Restore from backup file
-- **Clear**: Custom confirm dialog, auto-refreshes UI
+- **添加**：输入标题 + `Enter` 或点击 `+`
+- **设为活动任务**：点击任务标题 → 红色边框标记，番茄数计入该任务
+- **完成**：点击复选框
+- **删除**：鼠标悬停出现 `×`（触控设备始终可见）
 
 ---
 
-## 7. Theme / 主题
+## 5. 专注统计
 
-Click 🌙/☀️ to toggle dark/light. Persists across sessions.
-
----
-
-## 8. Keyboard Shortcuts / 快捷键
-
-| Key | Action |
-|-----|--------|
-| `Space` | Start / Pause |
-| `N` | Focus task input |
-| `1`/`2`/`3` | Focus / Short / Long |
-| `R` | Reset |
-| `S` | Skip |
-| `Ctrl+,` | Data management |
-| `Escape` | Close panel |
+- 今日专注：完成次数和总分钟数
+- 7 天热力图：5 级颜色强度
+- 数据自动保存，刷新不丢失
 
 ---
 
-## 9. PWA Install / PWA 安装
+## 6. 数据管理
 
-Chrome/Edge on HTTP → click "Install" in footer.
+点击顶栏齿轮图标：
+
+- **导出**：下载 JSON 备份文件
+- **导入**：从备份文件恢复
+- **清除**：自定义确认对话框，清除后自动刷新
 
 ---
 
-## 10. Platform Support / 平台支持
+## 7. 主题切换
 
-| Platform | Browser | Electron |
-|----------|---------|----------|
+点击月亮/太阳图标切换暗色/亮色主题，自动保存。
+
+---
+
+## 8. 键盘快捷键
+
+| 快捷键 | 功能 |
+|--------|------|
+| `Space` | 开始 / 暂停 |
+| `N` | 聚焦任务输入框 |
+| `1` / `2` / `3` | 专注 / 短休息 / 长休息 |
+| `R` | 重置 |
+| `S` | 跳过 |
+| `Ctrl+,` | 数据管理 |
+| `Escape` | 关闭面板 |
+
+---
+
+## 9. PWA 安装
+
+使用 Chrome/Edge 浏览器访问（需 HTTP），点击页脚「安装」按钮。
+
+---
+
+## 10. 平台支持
+
+| 平台 | 浏览器 | Electron |
+|------|--------|----------|
 | Windows | ✅ | ✅ |
 | macOS | ✅ | ❌ |
 | Linux | ✅ | ❌ |
-| Android | ✅ PWA | N/A |
-| iOS | ✅ PWA | N/A |
+| Android | ✅ PWA | — |
+| iOS | ✅ PWA | — |

@@ -1,29 +1,31 @@
-# 🏗 Technical Documentation / 技术文档
+[**English**](TECHNICAL.en.md) | 中文
 
 ---
 
-## 1. Architecture / 架构
+# 🏗 技术文档
 
-### Design Principles / 设计原则
+## 1. 架构
 
-- **Zero dependencies**: Pure Vanilla JS
-- **Modular**: Single-responsibility modules
-- **Event-driven**: CustomEvent inter-module communication
-- **i18n-first**: All UI strings via `t()` function
-- **Dark-first**: Dark theme as base, light as override
+### 设计原则
 
-### Dual Build / 双版本
+- **零依赖**：纯 Vanilla JS，无需构建
+- **模块化**：每个功能独立模块，职责单一
+- **事件驱动**：模块间通过 CustomEvent 通信
+- **国际化优先**：所有 UI 文本通过 `t()` 函数获取
+- **暗色优先**：暗色主题为基础，亮色为覆盖层
 
-| Version | File | Loading | Use Case |
-|---------|------|---------|----------|
-| ES Module | `src/js/app.js` + modules | `<script type="module">` | HTTP server |
-| IIFE bundle | `src/js/main.js` | `<script src>` | file:// protocol |
+### 双版本架构
+
+| 版本 | 文件 | 加载方式 | 用途 |
+|------|------|----------|------|
+| ES Module | `src/js/app.js` + 各模块 | `<script type="module">` | HTTP 服务器 |
+| IIFE 打包 | `src/js/main.js` | `<script src>` | file:// 协议 |
 
 ---
 
-## 2. i18n System / 国际化系统
+## 2. 国际化系统
 
-### Implementation / 实现
+### 实现
 
 ```javascript
 var translations = {
@@ -32,45 +34,45 @@ var translations = {
 };
 
 function t(key) { return translations[currentLang][key] || key; }
-function tf(key, args) { /* template with {0}, {1} */ }
+function tf(key, args) { /* 模板翻译，支持 {0}, {1} */ }
 ```
 
-### DOM Binding / DOM 绑定
+### DOM 绑定
 
-Three `data-*` attributes for automatic translation:
+三个 `data-*` 属性用于自动翻译：
 
-| Attribute | Updates | Example |
-|-----------|---------|---------|
+| 属性 | 更新目标 | 示例 |
+|------|----------|------|
 | `data-i18n="key"` | `textContent` | `<span data-i18n="focus">专注</span>` |
 | `data-i18n-aria="key"` | `aria-label` | `<button data-i18n-aria="reset">` |
 | `data-i18n-placeholder="key"` | `placeholder` | `<input data-i18n-placeholder="addTaskPlaceholder">` |
 
-### Language Switch Flow / 语言切换流程
+### 语言切换流程
 
 ```
-User clicks EN/中
+用户点击 EN/中
   → toggleLang()
     → currentLang = zh ↔ en
     → saveLang() → localStorage
-    → applyI18n() → update all [data-i18n] elements
-    → updateTimerUI() → timer button/label text
-    → renderStats() → today summary + heatmap
-    → renderTaskList() → task aria-labels
-    → Rebuild settings panel if open
+    → applyI18n() → 更新所有 [data-i18n] 元素
+    → updateTimerUI() → 计时器按钮/标签
+    → renderStats() → 今日摘要 + 热力图
+    → renderTaskList() → 任务 aria-label
+    → 重建设置面板（如果已打开）
 ```
 
-### Persistence / 持久化
+### 持久化
 
-- Key: `pomodoro_lang`
-- Values: `"zh"` (default) or `"en"`
-- Saved to localStorage on every switch
+- 键名：`pomodoro_lang`
+- 值：`"zh"`（默认）或 `"en"`
+- 每次切换保存到 localStorage
 
 ---
 
-## 3. Module API / 模块 API
+## 3. 模块 API
 
-| Module | Key Exports |
-|--------|-------------|
+| 模块 | 主要导出 |
+|------|----------|
 | Timer | `initTimer`, `startTimer`, `pauseTimer`, `resetTimer`, `skip`, `setMode`, `getState` |
 | Tasks | `addTask`, `deleteTask`, `toggleTask`, `getTasks`, `incrementPomodoros`, `getActiveTaskId`, `setActiveTaskId` |
 | Stats | `initStats`, `renderStats`, `getStats`, `getTodayStats`, `getWeeklyStats`, `invalidateStatsCache` |
@@ -82,10 +84,10 @@ User clicks EN/中
 
 ---
 
-## 4. Event System / 事件系统
+## 4. 事件系统
 
-| Event | Source | Data |
-|-------|--------|------|
+| 事件 | 来源 | 数据 |
+|------|------|------|
 | `timer:tick` | timer | `{remaining, elapsed, mode}` |
 | `timer:complete` | timer | `{mode, completedSessions, actualDuration}` |
 | `timer:sessionComplete` | timer | `{mode, sessionCount, actualDuration}` |
@@ -94,9 +96,9 @@ User clicks EN/中
 
 ---
 
-## 5. Timer Implementation / 计时器实现
+## 5. 计时器实现
 
-Uses `setInterval` for reliable cross-environment timing:
+使用 `setInterval` 实现跨环境可靠计时：
 
 ```javascript
 timerInterval = setInterval(function () {
@@ -110,30 +112,30 @@ timerInterval = setInterval(function () {
 }, 1000);
 ```
 
-State machine: `IDLE → RUNNING → PAUSED → RUNNING → COMPLETED`
+状态机：`IDLE → RUNNING → PAUSED → RUNNING → COMPLETED`
 
 ---
 
-## 6. Storage / 存储
+## 6. 存储
 
-| Key | Type | Write Trigger |
-|-----|------|---------------|
-| `pomodoro_tasks` | `Task[]` | Task CRUD |
-| `pomodoro_stats` | `StatRecord[]` | Focus complete |
-| `pomodoro_theme` | `"dark"\|"light"` | Theme toggle |
-| `pomodoro_pomo_counter` | `string` | Focus complete |
-| `pomodoro_active_task` | `string` | Set active task |
-| `pomodoro_lang` | `"zh"\|"en"` | Language switch |
+| 键 | 类型 | 写入时机 |
+|----|------|----------|
+| `pomodoro_tasks` | `Task[]` | 任务增删改 |
+| `pomodoro_stats` | `StatRecord[]` | 专注完成 |
+| `pomodoro_theme` | `"dark"\|"light"` | 切换主题 |
+| `pomodoro_pomo_counter` | `string` | 专注完成 |
+| `pomodoro_active_task` | `string` | 设置活动任务 |
+| `pomodoro_lang` | `"zh"\|"en"` | 切换语言 |
 
-Write safety: `saveTasks()` returns boolean, failed writes roll back memory state.
+写入安全：`saveTasks()` 返回布尔值，失败时回滚内存状态。
 
-Stats cache: `statsCache` + `statsCacheDirty` flag avoids repeated parsing.
+统计缓存：`statsCache` + `statsCacheDirty` 标志避免重复解析。
 
 ---
 
-## 7. Security / 安全
+## 7. 安全
 
-### CSP
+### CSP 策略
 
 ```
 default-src 'self' blob: file:;
@@ -146,25 +148,25 @@ frame-ancestors 'none'; object-src 'none';
 
 ### Electron
 
-Custom protocol `pomodoro://app/`, `sandbox: true`, `webSecurity: true`.
+自定义协议 `pomodoro://app/`，`sandbox: true`，`webSecurity: true`。
 
 ---
 
-## 8. CSS Architecture / CSS 架构
+## 8. CSS 架构
 
-- Design tokens via CSS Custom Properties
-- `[data-theme="light"]` overrides dark defaults
-- Responsive: single column < 768px, two columns ≥ 768px
-- Fonts: Space Grotesk (UI) + JetBrains Mono (timer)
+- 设计令牌通过 CSS Custom Properties 定义
+- `[data-theme="light"]` 覆盖暗色默认值
+- 响应式：单列 < 768px，双列 ≥ 768px
+- 字体：Space Grotesk（界面）+ JetBrains Mono（计时器）
 
 ---
 
-## 9. Platform Support / 平台支持
+## 9. 平台支持
 
-| Platform | Browser | Electron Desktop |
-|----------|---------|------------------|
-| Windows | ✅ | ✅ (NSIS installer) |
-| macOS | ✅ | ❌ Not configured |
-| Linux | ✅ | ❌ Not configured |
+| 平台 | 浏览器 | Electron 桌面 |
+|------|--------|---------------|
+| Windows | ✅ | ✅（NSIS 安装程序） |
+| macOS | ✅ | ❌ 未配置 |
+| Linux | ✅ | ❌ 未配置 |
 
-Electron `package.json` only defines `win.target`. macOS/Linux desktop builds are not supported.
+Electron `package.json` 仅定义了 `win.target`，不支持 macOS/Linux 桌面构建。
