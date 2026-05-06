@@ -1,50 +1,45 @@
-/**
- * stats.js — Focus session statistics module
- *
- * Records every completed focus session to LocalStorage and exposes helpers
- * for querying daily, weekly, and all-time stats.
- *
- * LocalStorage schema (key: "pomodoro_stats"):
- *   Array of { date: "YYYY-MM-DD", duration: seconds, taskId: null|string, timestamp: ISO }
- *
- * Exports:
- *   initStats()          — attach event listeners, bootstrap
- *   getStats()           — return all raw session records
- *   getTodayStats()      — { sessions, totalMinutes }
- *   getWeeklyStats()     — [{ date, sessions, minutes }] for last 7 days
- *   getDailyStats(date)  — { date, sessions, totalMinutes, records } for a given date
- *   getHeatmapLevel(minutes) — 0-4 level index for heatmap colouring
- *   renderStats()        — update the DOM (today card + heatmap)
- *   invalidateStatsCache() — mark cache as stale
- */
-
 import { TIMER_MODES } from './timer.js';
+import { t, tf, getWeekdays } from './i18n.js';
+import { TIMER_SESSION_COMPLETE, SETTINGS_DATA_CHANGED, fire, on } from './events.js';
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+export interface StatsRecord {
+  date: string;
+  duration: number;
+  taskId: string | null;
+  timestamp: string;
+}
+
+export interface TodayStats {
+  sessions: number;
+  totalMinutes: number;
+}
+
+export interface WeeklyDayStats {
+  date: string;
+  sessions: number;
+  minutes: number;
+}
+
+export interface DailyStats {
+  date: string;
+  sessions: number;
+  totalMinutes: number;
+  records: StatsRecord[];
+}
 
 const STORAGE_KEY = 'pomodoro_stats';
 
 const HEATMAP_THRESHOLDS = [0, 25, 50, 100, 150];
 
-// ---------------------------------------------------------------------------
-// Memory cache
-// ---------------------------------------------------------------------------
+let statsCache: StatsRecord[] | null = null;
+let statsCacheDirty: boolean = true;
 
-let statsCache = null;
-let statsCacheDirty = true;
-
-export function invalidateStatsCache() {
+export function invalidateStatsCache(): void {
   statsCacheDirty = true;
   statsCache = null;
 }
 
-// ---------------------------------------------------------------------------
-// LocalStorage helpers
-// ---------------------------------------------------------------------------
-
-function readRawStats() {
+function readRawStats(): StatsRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -53,8 +48,8 @@ function readRawStats() {
       console.warn('[Stats] LocalStorage data is not an array, clearing corrupted data');
       return [];
     }
-    const validRecords = [];
-    parsed.forEach((record, index) => {
+    const validRecords: StatsRecord[] = [];
+    parsed.forEach((record: any, index: number) => {
       if (typeof record !== 'object' || record === null) {
         console.warn(`[Stats] Invalid record at index ${index}, skipping`);
         return;
@@ -92,7 +87,7 @@ function readRawStats() {
   }
 }
 
-export function getStats() {
+export function getStats(): StatsRecord[] {
   if (!statsCacheDirty && statsCache !== null) {
     return statsCache;
   }
@@ -115,7 +110,7 @@ export function getStats() {
   return filteredRecords;
 }
 
-function saveStats(records) {
+function saveStats(records: StatsRecord[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
   } catch (e) {
@@ -124,7 +119,7 @@ function saveStats(records) {
   }
 }
 
-function showStorageWarning() {
+function showStorageWarning(): void {
   const statsSection = document.querySelector('.stats-section');
   if (!statsSection) return;
 
@@ -138,11 +133,11 @@ function showStorageWarning() {
     'background:#fff3cd;color:#856404;border:1px solid #ffc107;' +
     'border-radius:8px;padding:12px 40px 12px 16px;margin-bottom:12px;' +
     'font-size:14px;line-height:1.5;position:relative;animation:fadeIn 0.3s ease;';
-  warning.textContent = '⚠️ 存储空间不足，统计数据可能无法保存。请清理浏览器数据。';
+  warning.textContent = t('storageWarningStats');
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'storage-warning-close';
-  closeBtn.setAttribute('aria-label', '关闭警告');
+  closeBtn.setAttribute('aria-label', t('storageWarningClose'));
   closeBtn.textContent = '\u00D7';
   closeBtn.style.cssText =
     'position:absolute;right:8px;top:50%;transform:translateY(-50%);' +
@@ -162,33 +157,25 @@ function showStorageWarning() {
   }, 3000);
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDate(date) {
+function formatDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
 
-function weekdayLabel(date) {
-  const labels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+function weekdayLabel(date: Date): string {
+  const labels = getWeekdays();
   return labels[date.getDay()];
 }
 
-function shortDateLabel(date) {
+function shortDateLabel(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${m}/${d}`;
 }
 
-// ---------------------------------------------------------------------------
-// Public query API
-// ---------------------------------------------------------------------------
-
-export function getTodayStats() {
+export function getTodayStats(): TodayStats {
   const today = formatDate(new Date());
   const stats = getStats();
   const todaySessions = stats.filter(s => s.date === today);
@@ -199,9 +186,9 @@ export function getTodayStats() {
   };
 }
 
-export function getWeeklyStats() {
+export function getWeeklyStats(): WeeklyDayStats[] {
   const stats = getStats();
-  const result = [];
+  const result: WeeklyDayStats[] = [];
   const now = new Date();
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now);
@@ -218,7 +205,7 @@ export function getWeeklyStats() {
   return result;
 }
 
-export function getDailyStats(date) {
+export function getDailyStats(date: string): DailyStats {
   const stats = getStats();
   const daySessions = stats.filter(s => s.date === date);
   const totalSeconds = daySessions.reduce((sum, s) => sum + s.duration, 0);
@@ -230,7 +217,7 @@ export function getDailyStats(date) {
   };
 }
 
-export function getHeatmapLevel(minutes) {
+export function getHeatmapLevel(minutes: number): number {
   if (minutes <= 0) return 0;
   if (minutes <= 25) return 1;
   if (minutes <= 50) return 2;
@@ -238,15 +225,11 @@ export function getHeatmapLevel(minutes) {
   return 4;
 }
 
-// ---------------------------------------------------------------------------
-// Session recording
-// ---------------------------------------------------------------------------
-
-function recordSession(duration) {
+function recordSession(duration: number): void {
   const stats = getStats();
   const now = new Date();
   const actualDuration = duration || TIMER_MODES.FOCUS.duration;
-  const record = {
+  const record: StatsRecord = {
     date: formatDate(now),
     duration: actualDuration,
     taskId: null,
@@ -257,36 +240,56 @@ function recordSession(duration) {
   invalidateStatsCache();
 }
 
-// ---------------------------------------------------------------------------
-// DOM rendering
-// ---------------------------------------------------------------------------
-
-export function renderStats() {
+export function renderStats(): void {
   renderTodayCard();
   renderHeatmap();
 }
 
-function renderTodayCard() {
+function renderTodayCard(): void {
   const el = document.getElementById('todaySummary');
   if (!el) return;
 
   const { sessions, totalMinutes } = getTodayStats();
 
   if (sessions === 0) {
-    el.textContent = '今天还没有专注记录';
+    el.textContent = t('noFocusToday');
     el.classList.add('stats-empty');
   } else {
-    el.textContent = `${sessions} 次 · ${totalMinutes} 分钟`;
+    el.textContent = tf('sessionsMinutes', [String(sessions), String(totalMinutes)]);
     el.classList.remove('stats-empty');
   }
 }
 
-function renderHeatmap() {
+function renderHeatmap(): void {
   const container = document.getElementById('heatmap');
   if (!container) return;
 
   const weekly = getWeeklyStats();
 
+  if (container.children.length === 7) {
+    let mismatch = false;
+    weekly.forEach((day, index) => {
+      if (mismatch) return;
+      const col = container.children[index] as HTMLElement;
+      if (!col || col.getAttribute('data-date') !== day.date) {
+        mismatch = true;
+        return;
+      }
+      const block = col.querySelector('.heatmap-block');
+      if (block) {
+        const level = getHeatmapLevel(day.minutes);
+        block.className = `heatmap-block heatmap-level-${level}`;
+        block.setAttribute('title', `${day.date}\n${day.sessions} ${t('sessionsUnit')} · ${day.minutes} ${t('minutesUnit')}`);
+        block.setAttribute('aria-label', `${day.date}: ${day.sessions} ${t('sessionsUnit')}, ${day.minutes} ${t('minutesUnit')}`);
+      }
+    });
+    if (!mismatch) return;
+  }
+
+  renderHeatmapFull(container, weekly);
+}
+
+function renderHeatmapFull(container: HTMLElement, weekly: WeeklyDayStats[]): void {
   container.innerHTML = '';
 
   weekly.forEach(day => {
@@ -294,11 +297,12 @@ function renderHeatmap() {
 
     const col = document.createElement('div');
     col.className = 'heatmap-column';
+    col.setAttribute('data-date', day.date);
 
     const block = document.createElement('div');
     block.className = `heatmap-block heatmap-level-${level}`;
-    block.setAttribute('title', `${day.date}\n${day.sessions} 次 · ${day.minutes} 分钟`);
-    block.setAttribute('aria-label', `${day.date}: ${day.sessions} 次, ${day.minutes} 分钟`);
+    block.setAttribute('title', `${day.date}\n${day.sessions} ${t('sessionsUnit')} · ${day.minutes} ${t('minutesUnit')}`);
+    block.setAttribute('aria-label', `${day.date}: ${day.sessions} ${t('sessionsUnit')}, ${day.minutes} ${t('minutesUnit')}`);
 
     const label = document.createElement('span');
     label.className = 'heatmap-label';
@@ -318,12 +322,8 @@ function renderHeatmap() {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Initialization
-// ---------------------------------------------------------------------------
-
-export function initStats() {
-  document.addEventListener('timer:sessionComplete', function (e) {
+export function initStats(): void {
+  on(TIMER_SESSION_COMPLETE, function (e: any) {
     const { mode, actualDuration } = e.detail;
     if (mode === 'FOCUS') {
       recordSession(actualDuration);
@@ -331,7 +331,7 @@ export function initStats() {
     }
   });
 
-  document.addEventListener('settings:dataChanged', function () {
+  on(SETTINGS_DATA_CHANGED, function () {
     invalidateStatsCache();
     renderStats();
   });

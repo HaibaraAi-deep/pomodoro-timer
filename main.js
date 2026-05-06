@@ -31,9 +31,15 @@ function createWindow() {
 
 app.whenReady().then(function () {
   protocol.registerFileProtocol('pomodoro', function (request, callback) {
-    const url = request.url.substr('pomodoro://app/'.length);
+    const url = request.url.slice('pomodoro://app/'.length);
     const filePath = path.join(__dirname, 'src', url);
-    callback({ path: filePath });
+    const resolved = path.resolve(filePath);
+    const srcDir = path.resolve(__dirname, 'src');
+    if (!resolved.startsWith(srcDir)) {
+      callback({ error: -3 }); // ABORTED
+      return;
+    }
+    callback({ path: resolved });
   });
 
   createWindow();

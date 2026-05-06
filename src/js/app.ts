@@ -1,12 +1,3 @@
-/**
- * app.js — Application Entry Point
- * Pomodoro Timer + Task Tracker
- *
- * Initializes all modules on DOMContentLoaded.
- * Modules communicate via custom DOM events and share state through
- * dedicated module APIs. No global variables are exposed.
- */
-
 import {
   initTimer,
   startTimer,
@@ -44,75 +35,85 @@ import { initConfetti } from './confetti.js';
 import { initPWA } from './pwa.js';
 import { initAudio } from './audio.js';
 import { initSettings } from './settings.js';
+import { initVitals } from './vitals.js';
+import { t, tf, applyI18n, toggleLang, getCurrentLang } from './i18n.js';
+import { TIMER_INCREMENT_POMODOROS, SETTINGS_DATA_CHANGED, TIMER_SESSION_COMPLETE, on } from './events.js';
 
-// ---------------------------------------------------------------------------
-// Global Error Handling
-// ---------------------------------------------------------------------------
+interface Task {
+  id: string;
+  title: string;
+  completed: boolean;
+  pomodoros: number;
+  createdAt: string;
+  completedAt: string | null;
+}
 
-function setupGlobalErrorHandling() {
-  window.addEventListener('error', function (e) {
+interface TimerStateSnapshot {
+  state: string;
+  mode: string;
+  remaining: number;
+  elapsed: number;
+  duration: number;
+  sessionCount: number;
+  autoStart: boolean;
+}
+
+function setupGlobalErrorHandling(): void {
+  window.addEventListener('error', function (e: ErrorEvent): void {
     console.error('[Pomodoro] Uncaught error:', e.error || e.message);
   });
 
-  window.addEventListener('unhandledrejection', function (e) {
+  window.addEventListener('unhandledrejection', function (e: PromiseRejectionEvent): void {
     console.error('[Pomodoro] Unhandled promise rejection:', e.reason);
   });
 }
 
-// ---------------------------------------------------------------------------
-// App Initialization
-// ---------------------------------------------------------------------------
-
-function initApp() {
+function initApp(): void {
   console.log('[Pomodoro] App initializing...');
 
   setupGlobalErrorHandling();
 
-  // --- Timer module ---
+  applyI18n();
+
   initTimer();
   wireTimerButtons();
   wireModeButtons();
   wireSkipButton();
   console.log('[Pomodoro] Timer initialised.');
 
-  // --- Task module ---
   initTasks();
   console.log('[Pomodoro] Tasks initialised.');
 
-  // --- Stats module ---
   initStats();
   renderStats();
   console.log('[Pomodoro] Stats initialised.');
 
-  // --- Theme module ---
   initTheme();
   console.log('[Pomodoro] Theme initialised.');
 
-  // --- Confetti module ---
   initConfetti();
   console.log('[Pomodoro] Confetti initialised.');
 
-  // --- PWA module (install prompt) ---
   initPWA();
   console.log('[Pomodoro] PWA initialised.');
 
-  // --- Audio module (session-end notification) ---
   initAudio();
   console.log('[Pomodoro] Audio initialised.');
 
-  // --- Settings module (data export/clear) ---
   initSettings();
   console.log('[Pomodoro] Settings initialised.');
 
-  // --- Listen for timer:incrementPomodoros event ---
-  document.addEventListener('timer:incrementPomodoros', function () {
-    const activeId = getActiveTaskId();
+  initVitals();
+  console.log('[Pomodoro] Vitals initialised.');
+
+  on(TIMER_INCREMENT_POMODOROS, function (): void {
+    const activeId: string | null = getActiveTaskId();
     if (activeId) {
       incrementPomodoros(activeId);
       console.log('[App] Incremented pomodoros for active task:', activeId);
     } else {
-      const allTasks = getTasks();
-      const firstIncomplete = allTasks.find(t => !t.completed);
+      const allTasks: Task[] = getTasks();
+      const firstIncomplete: Task | undefined = allTasks.find((t: Task) => !t.completed);
       if (firstIncomplete) {
         incrementPomodoros(firstIncomplete.id);
         console.log('[App] Incremented pomodoros for first incomplete task:', firstIncomplete.title);
@@ -121,62 +122,56 @@ function initApp() {
     renderTaskList();
   });
 
-  // --- Listen for settings:dataChanged ---
-  document.addEventListener('settings:dataChanged', function () {
+  on(SETTINGS_DATA_CHANGED, function (): void {
     reloadTasks();
     renderTaskList();
     resetTimer();
     resetSessionCounter();
+    applyI18n();
   });
 
-  // --- Keyboard shortcuts ---
+  wireLangToggle();
+
   setupKeyboardShortcuts();
   console.log('[Pomodoro] Keyboard shortcuts initialised.');
 
-  // --- Settings shortcut (Control/Cmd + ,) ---
-  document.addEventListener('keydown', function (e) {
-    const target = e.target;
-    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON';
+  document.addEventListener('keydown', function (e: KeyboardEvent): void {
+    const target: EventTarget | null = e.target;
+    const isInput: boolean = (target as HTMLElement).tagName === 'INPUT' || (target as HTMLElement).tagName === 'TEXTAREA' || (target as HTMLElement).tagName === 'BUTTON';
     if (isInput && e.key !== ',') return;
 
     if ((e.ctrlKey || e.metaKey) && e.key === ',') {
       e.preventDefault();
       initSettings();
-      const settingsContainer = document.getElementById('settingsContainer');
+      const settingsContainer: HTMLElement | null = document.getElementById('settingsContainer');
       if (settingsContainer) {
         settingsContainer.classList.remove('hidden');
       }
     }
   });
 
-  // --- Settings container close on Escape ---
-  document.addEventListener('keydown', function (e) {
+  document.addEventListener('keydown', function (e: KeyboardEvent): void {
     if (e.key === 'Escape') {
-      const settingsContainer = document.getElementById('settingsContainer');
+      const settingsContainer: HTMLElement | null = document.getElementById('settingsContainer');
       if (settingsContainer && !settingsContainer.classList.contains('hidden')) {
         settingsContainer.classList.add('hidden');
       }
     }
   });
 
-  // --- Service Worker registration ---
   registerServiceWorker();
 
   console.log('[Pomodoro] App ready.');
 }
 
-// ---------------------------------------------------------------------------
-// Timer button wiring
-// ---------------------------------------------------------------------------
-
-function wireTimerButtons() {
-  const toggleBtn = document.getElementById('timerToggleBtn');
-  const resetBtn  = document.getElementById('timerResetBtn');
+function wireTimerButtons(): void {
+  const toggleBtn: HTMLElement | null = document.getElementById('timerToggleBtn');
+  const resetBtn: HTMLElement | null = document.getElementById('timerResetBtn');
 
   if (toggleBtn) {
-    toggleBtn.addEventListener('click', function () {
-      const { state } = getState();
-      if (state === 'RUNNING') {
+    toggleBtn.addEventListener('click', function (): void {
+      const snapshot: TimerStateSnapshot = getState();
+      if (snapshot.state === 'RUNNING') {
         pauseTimer();
       } else {
         startTimer();
@@ -185,18 +180,18 @@ function wireTimerButtons() {
   }
 
   if (resetBtn) {
-    resetBtn.addEventListener('click', function () {
+    resetBtn.addEventListener('click', function (): void {
       resetTimer();
     });
   }
 }
 
-function wireModeButtons() {
-  const modeButtons = document.querySelectorAll('[data-mode]');
+function wireModeButtons(): void {
+  const modeButtons: NodeListOf<Element> = document.querySelectorAll('[data-mode]');
 
-  modeButtons.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const targetMode = btn.getAttribute('data-mode');
+  modeButtons.forEach(function (btn: Element): void {
+    btn.addEventListener('click', function (): void {
+      const targetMode: string | null = btn.getAttribute('data-mode');
       if (targetMode && TIMER_MODES[targetMode]) {
         setMode(targetMode);
       }
@@ -204,62 +199,54 @@ function wireModeButtons() {
   });
 }
 
-function wireSkipButton() {
-  const skipBtn = document.getElementById('timerSkipBtn');
+function wireSkipButton(): void {
+  const skipBtn: HTMLElement | null = document.getElementById('timerSkipBtn');
   if (skipBtn) {
-    skipBtn.addEventListener('click', function () {
+    skipBtn.addEventListener('click', function (): void {
       skip();
     });
   }
 }
 
-// ---------------------------------------------------------------------------
-// Task wiring
-// ---------------------------------------------------------------------------
-
-function initTasks() {
+function initTasks(): void {
   renderTaskList();
   wireTaskInput();
 }
 
-function renderTaskList() {
-  const listEl = document.getElementById('taskList');
-  const emptyEl = document.getElementById('taskEmptyState');
+function renderTaskList(): void {
+  const listEl: HTMLElement | null = document.getElementById('taskList');
+  const emptyEl: HTMLElement | null = document.getElementById('taskEmptyState');
 
   if (!listEl) return;
 
-  const allTasks = getTasks();
-  const currentActiveId = getActiveTaskId();
+  const allTasks: Task[] = getTasks();
+  const currentActiveId: string | null = getActiveTaskId();
 
-  // Diff-based update: compare existing DOM with data
-  const existingItems = listEl.querySelectorAll('.task-item');
-  const existingMap = new Map();
-  existingItems.forEach(function (li) {
+  const existingItems: NodeListOf<HTMLLIElement> = listEl.querySelectorAll('.task-item');
+  const existingMap: Map<string | null, HTMLLIElement> = new Map();
+  existingItems.forEach(function (li: HTMLLIElement): void {
     existingMap.set(li.getAttribute('data-task-id'), li);
   });
 
-  const taskIds = new Set(allTasks.map(t => t.id));
+  const taskIds: Set<string | null> = new Set(allTasks.map((t: Task) => t.id));
 
-  // Remove items that no longer exist in data
-  existingMap.forEach(function (li, id) {
+  existingMap.forEach(function (li: HTMLLIElement, id: string | null): void {
     if (!taskIds.has(id)) {
       li.remove();
     }
   });
 
-  // Add or update items in order
-  allTasks.forEach(function (task, index) {
-    const existingLi = existingMap.get(task.id);
+  allTasks.forEach(function (task: Task, index: number): void {
+    const existingLi: HTMLLIElement | undefined = existingMap.get(task.id) as HTMLLIElement | undefined;
 
     if (existingLi) {
-      // Update existing item
-      const checkbox = existingLi.querySelector('.task-checkbox');
+      const checkbox: HTMLInputElement | null = existingLi.querySelector('.task-checkbox');
       if (checkbox) checkbox.checked = task.completed;
 
-      const titleSpan = existingLi.querySelector('.task-title');
+      const titleSpan: HTMLSpanElement | null = existingLi.querySelector('.task-title');
       if (titleSpan) titleSpan.textContent = task.title;
 
-      const pomoBadge = existingLi.querySelector('.task-pomodoros');
+      const pomoBadge: HTMLSpanElement | null = existingLi.querySelector('.task-pomodoros');
       if (pomoBadge) {
         if (task.pomodoros > 0) {
           pomoBadge.textContent = String.fromCharCode(0x1F345) + ' ' + task.pomodoros;
@@ -269,9 +256,9 @@ function renderTaskList() {
         }
       }
 
-      const deleteBtn = existingLi.querySelector('.task-delete-btn');
+      const deleteBtn: HTMLButtonElement | null = existingLi.querySelector('.task-delete-btn');
       if (deleteBtn) {
-        deleteBtn.setAttribute('aria-label', '删除任务: ' + sanitizeForAria(task.title));
+        deleteBtn.setAttribute('aria-label', t('deleteTask') + ': ' + sanitizeForAria(task.title));
       }
 
       if (task.completed) {
@@ -282,22 +269,19 @@ function renderTaskList() {
 
       existingLi.classList.remove('slide-in');
 
-      // Update active task highlight
       if (task.id === currentActiveId && !task.completed) {
         existingLi.classList.add('task-active');
       } else {
         existingLi.classList.remove('task-active');
       }
 
-      // Ensure correct order
-      const currentItems = listEl.querySelectorAll('.task-item');
+      const currentItems: NodeListOf<HTMLLIElement> = listEl.querySelectorAll('.task-item');
       if (currentItems[index] !== existingLi) {
         listEl.insertBefore(existingLi, currentItems[index] || null);
       }
     } else {
-      // Create new item
-      const li = createTaskElement(task, currentActiveId);
-      const currentItems = listEl.querySelectorAll('.task-item');
+      const li: HTMLLIElement = createTaskElement(task, currentActiveId);
+      const currentItems: NodeListOf<HTMLLIElement> = listEl.querySelectorAll('.task-item');
       if (currentItems[index]) {
         listEl.insertBefore(li, currentItems[index]);
       } else {
@@ -306,7 +290,6 @@ function renderTaskList() {
     }
   });
 
-  // Toggle empty state visibility
   if (allTasks.length === 0) {
     if (emptyEl) emptyEl.classList.remove('hidden');
   } else {
@@ -314,43 +297,40 @@ function renderTaskList() {
   }
 }
 
-function createTaskElement(task, activeId) {
-  const li = document.createElement('li');
+function createTaskElement(task: Task, activeId: string | null): HTMLLIElement {
+  const li: HTMLLIElement = document.createElement('li');
   li.className = 'task-item slide-in' + (task.completed ? ' completed' : '') +
     (task.id === activeId && !task.completed ? ' task-active' : '');
   li.setAttribute('data-task-id', task.id);
 
-  // Checkbox
-  const checkbox = document.createElement('input');
+  const checkbox: HTMLInputElement = document.createElement('input');
   checkbox.type = 'checkbox';
   checkbox.className = 'task-checkbox';
   checkbox.checked = task.completed;
-  checkbox.setAttribute('aria-label', task.completed ? '标记未完成' : '标记完成');
-  checkbox.addEventListener('change', function () {
-    const updatedTask = toggleTask(task.id);
+  checkbox.setAttribute('aria-label', task.completed ? t('markIncomplete') : t('markComplete'));
+  checkbox.addEventListener('change', function (): void {
+    const updatedTask: Task | null = toggleTask(task.id);
     if (updatedTask) {
       updateLiveRegion(updatedTask.completed
-        ? `任务 "${updatedTask.title}" 已标记为完成`
-        : `任务 "${updatedTask.title}" 已标记为未完成`);
+        ? tf('taskMarkedComplete', [updatedTask.title])
+        : tf('taskMarkedIncomplete', [updatedTask.title]));
       renderTaskList();
     }
   });
 
-  // Title (clickable to set as active task)
-  const titleSpan = document.createElement('span');
+  const titleSpan: HTMLSpanElement = document.createElement('span');
   titleSpan.className = 'task-title';
   titleSpan.textContent = task.title;
-  titleSpan.addEventListener('click', function () {
+  titleSpan.addEventListener('click', function (): void {
     if (!task.completed) {
       setActiveTaskId(task.id);
       renderTaskList();
-      updateLiveRegion(`已将 "${task.title}" 设为当前专注任务`);
+      updateLiveRegion(tf('taskSetAsFocus', [task.title]));
     }
   });
-  titleSpan.setAttribute('title', '点击设为当前专注任务');
+  titleSpan.setAttribute('title', t('setFocusTask'));
 
-  // Pomodoro count badge
-  const pomoBadge = document.createElement('span');
+  const pomoBadge: HTMLSpanElement = document.createElement('span');
   pomoBadge.className = 'task-pomodoros';
   if (task.pomodoros > 0) {
     pomoBadge.textContent = String.fromCharCode(0x1F345) + ' ' + task.pomodoros;
@@ -358,23 +338,22 @@ function createTaskElement(task, activeId) {
     pomoBadge.classList.add('hidden');
   }
 
-  // Delete button
-  const deleteBtn = document.createElement('button');
+  const deleteBtn: HTMLButtonElement = document.createElement('button');
   deleteBtn.className = 'task-delete-btn';
-  deleteBtn.setAttribute('aria-label', '删除任务: ' + sanitizeForAria(task.title));
+  deleteBtn.setAttribute('aria-label', t('deleteTask') + ': ' + sanitizeForAria(task.title));
   deleteBtn.textContent = '\u00D7';
-  deleteBtn.addEventListener('click', function (e) {
+  deleteBtn.addEventListener('click', function (e: MouseEvent): void {
     e.stopPropagation();
 
     deleteBtn.disabled = true;
     li.classList.add('fade-out');
 
-    li.addEventListener('animationend', function handler() {
+    li.addEventListener('animationend', function handler(): void {
       li.removeEventListener('animationend', handler);
       deleteBtn.disabled = false;
-      const success = deleteTask(task.id);
+      const success: boolean = deleteTask(task.id);
       if (success) {
-        updateLiveRegion(`任务 "${task.title}" 已删除`);
+        updateLiveRegion(tf('taskDeleted', [task.title]));
       }
       renderTaskList();
     }, { once: true });
@@ -388,28 +367,29 @@ function createTaskElement(task, activeId) {
   return li;
 }
 
-function wireTaskInput() {
-  const inputEl = document.getElementById('taskInput');
-  const addBtn = document.getElementById('taskAddBtn');
+function wireTaskInput(): void {
+  const inputEl: HTMLInputElement | null = document.getElementById('taskInput') as HTMLInputElement | null;
+  const addBtn: HTMLElement | null = document.getElementById('taskAddBtn');
 
   if (!inputEl) return;
 
-  function handleAdd() {
-    const raw = inputEl.value;
+  function handleAdd(): void {
+    if (!inputEl) return;
+    const raw: string = inputEl.value;
     if (!raw.trim()) return;
     try {
-      const task = addTask(raw);
+      const task: Task = addTask(raw);
       inputEl.value = '';
 
-      updateLiveRegion(`已添加任务: ${task.title}`);
+      updateLiveRegion(tf('taskAdded', [task.title]));
 
       renderTaskList();
     } catch (err) {
-      console.warn('[Tasks] Add failed:', err.message);
+      console.warn('[Tasks] Add failed:', (err as Error).message);
     }
   }
 
-  inputEl.addEventListener('keydown', function (e) {
+  inputEl.addEventListener('keydown', function (e: KeyboardEvent): void {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAdd();
@@ -421,22 +401,26 @@ function wireTaskInput() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Live Region for Screen Reader Notifications
-// ---------------------------------------------------------------------------
-
-function updateLiveRegion(message) {
-  const liveRegion = document.getElementById('liveRegion');
+function updateLiveRegion(message: string): void {
+  const liveRegion: HTMLElement | null = document.getElementById('liveRegion');
   if (liveRegion) {
     liveRegion.textContent = message;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Service Worker registration
-// ---------------------------------------------------------------------------
+function wireLangToggle(): void {
+  const langToggleBtn: HTMLElement | null = document.getElementById('langToggleBtn');
+  if (langToggleBtn) {
+    langToggleBtn.addEventListener('click', function (): void {
+      toggleLang();
+      applyI18n();
+      renderStats();
+      renderTaskList();
+    });
+  }
+}
 
-function registerServiceWorker() {
+function registerServiceWorker(): void {
   if (!('serviceWorker' in navigator)) {
     console.warn('[Pomodoro] Service Worker not supported in this browser.');
     return;
@@ -444,35 +428,31 @@ function registerServiceWorker() {
 
   navigator.serviceWorker
     .register('sw.js')
-    .then(function (registration) {
+    .then(function (registration: ServiceWorkerRegistration): void {
       console.log('[Pomodoro] Service Worker registered with scope:', registration.scope);
 
-      registration.addEventListener('updatefound', function () {
-        var installingWorker = registration.installing;
+      registration.addEventListener('updatefound', function (): void {
+        const installingWorker: ServiceWorker | null = registration.installing;
         if (!installingWorker) return;
 
-        installingWorker.addEventListener('statechange', function () {
+        installingWorker.addEventListener('statechange', function (): void {
           if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
             console.log('[Pomodoro] New Service Worker available — refresh to update.');
           }
         });
       });
     })
-    .catch(function (err) {
+    .catch(function (err: Error): void {
       console.error('[Pomodoro] Service Worker registration failed:', err);
     });
 }
 
-// ---------------------------------------------------------------------------
-// Keyboard shortcuts
-// ---------------------------------------------------------------------------
+function setupKeyboardShortcuts(): void {
+  document.addEventListener('keydown', function (e: KeyboardEvent): void {
+    const target: EventTarget | null = e.target;
+    const isInput: boolean = (target as HTMLElement).tagName === 'INPUT' || (target as HTMLElement).tagName === 'TEXTAREA';
 
-function setupKeyboardShortcuts() {
-  document.addEventListener('keydown', function (e) {
-    var target = e.target;
-    var isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
-
-    function isTyping() {
+    function isTyping(): boolean {
       return isInput && e.key !== 'n' && e.key !== 'N';
     }
 
@@ -481,7 +461,7 @@ function setupKeyboardShortcuts() {
         if (isTyping()) return;
         e.preventDefault();
         {
-          var s = getState().state;
+          const s: string = getState().state;
           if (s === 'RUNNING') {
             pauseTimer();
           } else {
@@ -494,11 +474,11 @@ function setupKeyboardShortcuts() {
       case 'N':
         if (e.ctrlKey || e.metaKey || e.altKey) return;
         {
-          var taskInputEl = document.getElementById('taskInput');
+          const taskInputEl: HTMLElement | null = document.getElementById('taskInput');
           if (taskInputEl) {
             e.preventDefault();
             taskInputEl.focus();
-            taskInputEl.select();
+            (taskInputEl as HTMLInputElement).select();
           }
         }
         break;
@@ -535,10 +515,6 @@ function setupKeyboardShortcuts() {
     }
   });
 }
-
-// ---------------------------------------------------------------------------
-// Bootstrap — wait for DOM, then start
-// ---------------------------------------------------------------------------
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initApp);

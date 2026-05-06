@@ -1,95 +1,98 @@
-/**
- * settings.js — Settings Module for Data Export, Import and Clear
- *
- * Provides utilities for exporting/importing tasks and stats data to/from JSON
- * files and clearing all stored data. Uses custom modal dialogs instead of
- * native confirm/alert.
- *
- * LocalStorage keys managed:
- *   - pomodoro_tasks
- *   - pomodoro_stats
- *   - pomodoro_theme
- *   - pomodoro_pomo_counter
- *
- * Exports:
- *   initSettings()          — attach event listeners, create settings UI if not exists
- *   exportData()            — trigger data export to JSON file
- *   clearAllData()          — clear all stored data
- *   toggleSettings()        — toggle settings panel visibility
- */
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+import { t } from './i18n.js';
+import { SETTINGS_DATA_CHANGED, fire } from './events.js';
 
 const SETTINGS_CONTAINER_ID = 'settingsContainer';
 const EXPORT_BUTTON_ID = 'exportBtn';
 const IMPORT_BUTTON_ID = 'importBtn';
 const CLEAR_ALL_BUTTON_ID = 'clearAllBtn';
 
-// ---------------------------------------------------------------------------
-// Settings UI HTML (inline)
-// ---------------------------------------------------------------------------
+declare function getTasks(): unknown[];
+declare function getStats(): unknown[];
 
-const SETTINGS_HTML = `
+function buildSettingsHTML(): string {
+  return `
   <div id="${SETTINGS_CONTAINER_ID}" class="settings-container hidden">
     <div class="settings-header">
-      <h2 class="settings-title">数据管理</h2>
-      <button class="settings-close-btn" id="settingsCloseBtn" aria-label="关闭设置">&times;</button>
+      <h2 class="settings-title">${t('dataManagement')}</h2>
+      <button class="settings-close-btn" id="settingsCloseBtn" aria-label="${t('closeSettings')}">&times;</button>
     </div>
     <div class="settings-content">
       <div class="settings-section">
-        <h3 class="settings-section-title">数据导出</h3>
-        <p class="settings-section-desc">将您的数据下载为 JSON 文件，用于备份或迁移。</p>
+        <h3 class="settings-section-title">${t('exportTitle')}</h3>
+        <p class="settings-section-desc">${t('exportDesc')}</p>
         <div class="settings-actions">
           <button class="btn btn-secondary" id="${EXPORT_BUTTON_ID}">
-            <span class="btn-icon" aria-hidden="true">⬇</span> 导出全部数据
+            <span class="btn-icon" aria-hidden="true">⬇</span> ${t('exportBtn')}
           </button>
           <div class="settings-data-type-labels">
-            <span class="data-type-label">包含: 任务 + 统计</span>
+            <span class="data-type-label">${t('containsData')}</span>
           </div>
         </div>
       </div>
 
       <div class="settings-section">
-        <h3 class="settings-section-title">数据导入</h3>
-        <p class="settings-section-desc">从备份文件恢复数据。导入将覆盖当前数据。</p>
+        <h3 class="settings-section-title">${t('importTitle')}</h3>
+        <p class="settings-section-desc">${t('importDesc')}</p>
         <div class="settings-actions">
           <button class="btn btn-secondary" id="${IMPORT_BUTTON_ID}">
-            <span class="btn-icon" aria-hidden="true">⬆</span> 导入数据
+            <span class="btn-icon" aria-hidden="true">⬆</span> ${t('importBtn')}
           </button>
           <input type="file" id="importFileInput" accept=".json" style="display:none">
           <div class="settings-data-type-labels">
-            <span class="data-type-label">支持: JSON 备份文件</span>
+            <span class="data-type-label">${t('importSupported')}</span>
           </div>
         </div>
       </div>
 
       <div class="settings-section">
-        <h3 class="settings-section-title">清除数据</h3>
-        <p class="settings-section-desc">删除本地存储的所有数据。此操作不可撤销，请谨慎操作。</p>
+        <h3 class="settings-section-title">${t('clearTitle')}</h3>
+        <p class="settings-section-desc">${t('clearDesc')}</p>
         <div class="settings-actions settings-actions-danger">
           <button class="btn btn-danger" id="${CLEAR_ALL_BUTTON_ID}">
-            <span class="btn-icon" aria-hidden="true">🗑</span> 清除全部数据
+            <span class="btn-icon" aria-hidden="true">🗑</span> ${t('clearBtn')}
           </button>
         </div>
         <div class="settings-data-type-labels">
-          <span class="data-type-label">将清除: 任务、统计、主题偏好</span>
+          <span class="data-type-label">${t('clearWillRemove')}</span>
         </div>
       </div>
 
       <div class="settings-footer">
-        <button class="btn btn-secondary btn-sm" id="settingsCloseBtn2">关闭</button>
+        <button class="btn btn-secondary btn-sm" id="settingsCloseBtn2">${t('close')}</button>
       </div>
     </div>
   </div>
 `;
+}
 
-// ---------------------------------------------------------------------------
-// Custom Modal Dialog
-// ---------------------------------------------------------------------------
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+  return Array.from(container.querySelectorAll<HTMLElement>(selectors));
+}
 
-function showModal(title, message, onConfirm) {
+function trapFocus(container: HTMLElement, event: KeyboardEvent): void {
+  const focusable = getFocusableElements(container);
+  if (focusable.length === 0) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  if (event.key === 'Tab') {
+    if (event.shiftKey) {
+      if (document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  }
+}
+
+function showModal(title: string, message: string, onConfirm?: () => void): void {
   const existing = document.getElementById('appModal');
   if (existing) existing.remove();
 
@@ -117,15 +120,17 @@ function showModal(title, message, onConfirm) {
 
   const cancelBtn = document.createElement('button');
   cancelBtn.className = 'btn btn-secondary btn-sm';
-  cancelBtn.textContent = '取消';
+  cancelBtn.textContent = t('cancel');
   cancelBtn.addEventListener('click', function () {
+    cleanup();
     overlay.remove();
   });
 
   const confirmBtn = document.createElement('button');
   confirmBtn.className = 'btn btn-danger btn-sm';
-  confirmBtn.textContent = '确认';
+  confirmBtn.textContent = t('confirm');
   confirmBtn.addEventListener('click', function () {
+    cleanup();
     overlay.remove();
     if (onConfirm) onConfirm();
   });
@@ -141,19 +146,30 @@ function showModal(title, message, onConfirm) {
 
   confirmBtn.focus();
 
-  overlay.addEventListener('click', function (e) {
-    if (e.target === overlay) overlay.remove();
-  });
-
-  document.addEventListener('keydown', function handler(e) {
+  function keyHandler(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
+      cleanup();
       overlay.remove();
-      document.removeEventListener('keydown', handler);
+    } else if (e.key === 'Tab') {
+      trapFocus(dialog, e);
+    }
+  }
+
+  function cleanup(): void {
+    document.removeEventListener('keydown', keyHandler);
+  }
+
+  document.addEventListener('keydown', keyHandler);
+
+  overlay.addEventListener('click', function (e: MouseEvent) {
+    if (e.target === overlay) {
+      cleanup();
+      overlay.remove();
     }
   });
 }
 
-function showToast(message) {
+function showToast(message: string): void {
   const existing = document.getElementById('appToast');
   if (existing) existing.remove();
 
@@ -178,11 +194,7 @@ function showToast(message) {
   }, 3000);
 }
 
-// ---------------------------------------------------------------------------
-// Data Export
-// ---------------------------------------------------------------------------
-
-export function exportData() {
+export function exportData(): void {
   const data = {
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -199,7 +211,7 @@ export function exportData() {
   console.log('[Settings] Data exported:', filename);
 }
 
-function downloadFile(url, filename) {
+function downloadFile(url: string, filename: string): void {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
@@ -214,78 +226,116 @@ function downloadFile(url, filename) {
   }, 100);
 }
 
-// ---------------------------------------------------------------------------
-// Data Import
-// ---------------------------------------------------------------------------
-
-function importData() {
+function importData(): void {
   const fileInput = document.getElementById('importFileInput');
   if (fileInput) {
     fileInput.click();
   }
 }
 
-function handleImportFile(e) {
-  const file = e.target.files[0];
+function isValidTask(item: unknown): boolean {
+  return (
+    item !== null &&
+    typeof item === 'object' &&
+    typeof (item as Record<string, unknown>).id === 'string' &&
+    typeof (item as Record<string, unknown>).title === 'string' &&
+    typeof (item as Record<string, unknown>).completed === 'boolean' &&
+    typeof (item as Record<string, unknown>).pomodoros === 'number'
+  );
+}
+
+function isValidStat(item: unknown): boolean {
+  return (
+    item !== null &&
+    typeof item === 'object' &&
+    typeof (item as Record<string, unknown>).date === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test((item as Record<string, unknown>).date as string) &&
+    typeof (item as Record<string, unknown>).duration === 'number' &&
+    (item as Record<string, unknown>).duration as number >= 0 &&
+    typeof (item as Record<string, unknown>).timestamp === 'string'
+  );
+}
+
+function handleImportFile(e: Event): void {
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0];
   if (!file) return;
 
+  if (file.size > 1048576) {
+    showToast(t('importFailTooLarge'));
+    target.value = '';
+    return;
+  }
+
   const reader = new FileReader();
-  reader.onload = function (event) {
+  reader.onload = function (event: ProgressEvent<FileReader>) {
     try {
-      const data = JSON.parse(event.target.result);
+      const data = JSON.parse(event.target?.result as string);
 
       if (typeof data !== 'object' || data === null) {
-        showToast('导入失败：文件格式不正确');
+        showToast(t('importFailFormat'));
         return;
       }
 
+      let hasValidData = false;
+
       if (data.tasks && Array.isArray(data.tasks)) {
-        localStorage.setItem('pomodoro_tasks', JSON.stringify(data.tasks));
+        const validTasks = data.tasks.filter(isValidTask);
+        if (validTasks.length > 0) {
+          localStorage.setItem('pomodoro_tasks', JSON.stringify(validTasks));
+          hasValidData = true;
+        }
       }
 
       if (data.stats && Array.isArray(data.stats)) {
-        localStorage.setItem('pomodoro_stats', JSON.stringify(data.stats));
+        const validStats = data.stats.filter(isValidStat);
+        if (validStats.length > 0) {
+          localStorage.setItem('pomodoro_stats', JSON.stringify(validStats));
+          hasValidData = true;
+        }
       }
 
-      showToast('数据导入成功');
+      if (!hasValidData) {
+        showToast(t('importFailInvalidData'));
+        return;
+      }
 
-      document.dispatchEvent(new CustomEvent('settings:dataChanged'));
+      showToast(t('importSuccess'));
+
+      fire(SETTINGS_DATA_CHANGED);
     } catch (err) {
       console.error('[Settings] Import failed:', err);
-      showToast('导入失败：无法解析文件');
+      showToast(t('importFailParse'));
     }
   };
 
+  reader.onerror = function () {
+    console.error('[Settings] File read error');
+    showToast(t('importFailParse'));
+  };
+
   reader.readAsText(file);
-  e.target.value = '';
+  target.value = '';
 }
 
-// ---------------------------------------------------------------------------
-// Data Clear
-// ---------------------------------------------------------------------------
-
-export function clearAllData() {
-  showModal('清除数据', '确定要清除所有数据吗？此操作不可撤销。', function () {
+export function clearAllData(): void {
+  showModal(t('clearTitle'), t('clearConfirm'), function () {
     try {
       localStorage.removeItem('pomodoro_tasks');
       localStorage.removeItem('pomodoro_stats');
       localStorage.removeItem('pomodoro_theme');
       localStorage.removeItem('pomodoro_pomo_counter');
       console.log('[Settings] All data cleared');
-      showToast('所有数据已清除');
-      document.dispatchEvent(new CustomEvent('settings:dataChanged'));
+      showToast(t('clearSuccess'));
+      fire(SETTINGS_DATA_CHANGED);
     } catch (e) {
       console.error('[Settings] Failed to clear data:', e);
-      showToast('清除数据失败，请检查浏览器设置');
+      showToast(t('clearFail'));
     }
   });
 }
 
-// ---------------------------------------------------------------------------
-// DOM Rendering
-// ---------------------------------------------------------------------------
-
-function renderSettingsContainer() {
+function renderSettingsContainer(): void {
   const existingTrigger = document.getElementById(SETTINGS_CONTAINER_ID);
   if (existingTrigger) return;
 
@@ -293,12 +343,12 @@ function renderSettingsContainer() {
   if (!footer) return;
 
   const container = document.createElement('div');
-  container.innerHTML = SETTINGS_HTML;
+  container.innerHTML = buildSettingsHTML();
   const content = container.firstElementChild;
-  footer.parentNode.insertBefore(content, footer);
+  footer.parentNode!.insertBefore(content!, footer);
 }
 
-function wireSettingsUI() {
+function wireSettingsUI(): void {
   const container = document.getElementById(SETTINGS_CONTAINER_ID);
   if (!container) return;
 
@@ -322,7 +372,7 @@ function wireSettingsUI() {
     clearAllBtn.addEventListener('click', clearAllData);
   }
 
-  const closeButtons = container.querySelectorAll('[id$="CloseBtn"]');
+  const closeButtons = container.querySelectorAll<HTMLButtonElement>('[id$="CloseBtn"]');
   closeButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       container.classList.add('hidden');
@@ -330,7 +380,7 @@ function wireSettingsUI() {
   });
 }
 
-export function toggleSettings() {
+export function toggleSettings(): void {
   const container = document.getElementById(SETTINGS_CONTAINER_ID);
   if (!container) return;
 
@@ -342,13 +392,9 @@ export function toggleSettings() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Initialization
-// ---------------------------------------------------------------------------
-
-export function initSettings() {
-  if (initSettings._initialised) return;
-  initSettings._initialised = true;
+export function initSettings(): void {
+  if ((initSettings as unknown as Record<string, boolean>)._initialised) return;
+  (initSettings as unknown as Record<string, boolean>)._initialised = true;
 
   renderSettingsContainer();
   wireSettingsUI();
