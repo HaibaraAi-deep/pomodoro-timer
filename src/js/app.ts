@@ -34,7 +34,7 @@ import { initTheme } from './theme.js';
 import { initConfetti } from './confetti.js';
 import { initPWA } from './pwa.js';
 import { initAudio } from './audio.js';
-import { initSettings } from './settings.js';
+import { initSettings, toggleSettings } from './settings.js';
 import { initVitals } from './vitals.js';
 import { t, tf, applyI18n, toggleLang, getCurrentLang } from './i18n.js';
 import { TIMER_INCREMENT_POMODOROS, SETTINGS_DATA_CHANGED, TIMER_SESSION_COMPLETE, on } from './events.js';
@@ -101,6 +101,7 @@ function initApp(): void {
   console.log('[Pomodoro] Audio initialised.');
 
   initSettings();
+  wireSettingsTrigger();
   console.log('[Pomodoro] Settings initialised.');
 
   initVitals();
@@ -417,6 +418,13 @@ function wireLangToggle(): void {
       renderStats();
       renderTaskList();
     });
+  }
+}
+
+function wireSettingsTrigger(): void {
+  const settingsTriggerBtn: HTMLElement | null = document.getElementById('settingsTriggerBtn');
+  if (settingsTriggerBtn) {
+    settingsTriggerBtn.addEventListener('click', toggleSettings);
   }
 }
 

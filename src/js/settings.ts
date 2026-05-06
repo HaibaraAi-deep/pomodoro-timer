@@ -37,7 +37,7 @@ function buildSettingsHTML(): string {
           <button class="btn btn-secondary" id="${IMPORT_BUTTON_ID}">
             <span class="btn-icon" aria-hidden="true">⬆</span> ${t('importBtn')}
           </button>
-          <input type="file" id="importFileInput" accept=".json" style="display:none">
+          <input type="file" id="importFileInput" accept=".json" class="sr-only">
           <div class="settings-data-type-labels">
             <span class="data-type-label">${t('importSupported')}</span>
           </div>
