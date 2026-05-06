@@ -9,6 +9,8 @@
  *   initConfetti() — attach event listener, ready the confetti container
  */
 
+import { TIMER_SESSION_COMPLETE, on } from './events.js';
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -185,7 +187,7 @@ function launchConfetti() {
  * (focus or break) triggers a celebration burst.
  */
 export function initConfetti() {
-  document.addEventListener('timer:sessionComplete', function () {
+  on(TIMER_SESSION_COMPLETE, function () {
     launchConfetti();
   });
 

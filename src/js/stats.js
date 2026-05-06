@@ -19,6 +19,8 @@
  */
 
 import { TIMER_MODES } from './timer.js';
+import { t, tf, getWeekdays } from './i18n.js';
+import { TIMER_SESSION_COMPLETE, SETTINGS_DATA_CHANGED, fire, on } from './events.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -138,11 +140,11 @@ function showStorageWarning() {
     'background:#fff3cd;color:#856404;border:1px solid #ffc107;' +
     'border-radius:8px;padding:12px 40px 12px 16px;margin-bottom:12px;' +
     'font-size:14px;line-height:1.5;position:relative;animation:fadeIn 0.3s ease;';
-  warning.textContent = '⚠️ 存储空间不足，统计数据可能无法保存。请清理浏览器数据。';
+  warning.textContent = t('storageWarningStats');
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'storage-warning-close';
-  closeBtn.setAttribute('aria-label', '关闭警告');
+  closeBtn.setAttribute('aria-label', t('storageWarningClose'));
   closeBtn.textContent = '\u00D7';
   closeBtn.style.cssText =
     'position:absolute;right:8px;top:50%;transform:translateY(-50%);' +
@@ -174,7 +176,7 @@ function formatDate(date) {
 }
 
 function weekdayLabel(date) {
-  const labels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const labels = getWeekdays();
   return labels[date.getDay()];
 }
 
@@ -273,10 +275,10 @@ function renderTodayCard() {
   const { sessions, totalMinutes } = getTodayStats();
 
   if (sessions === 0) {
-    el.textContent = '今天还没有专注记录';
+    el.textContent = t('noFocusToday');
     el.classList.add('stats-empty');
   } else {
-    el.textContent = `${sessions} 次 · ${totalMinutes} 分钟`;
+    el.textContent = tf('sessionsMinutes', [sessions, totalMinutes]);
     el.classList.remove('stats-empty');
   }
 }
@@ -297,8 +299,8 @@ function renderHeatmap() {
 
     const block = document.createElement('div');
     block.className = `heatmap-block heatmap-level-${level}`;
-    block.setAttribute('title', `${day.date}\n${day.sessions} 次 · ${day.minutes} 分钟`);
-    block.setAttribute('aria-label', `${day.date}: ${day.sessions} 次, ${day.minutes} 分钟`);
+    block.setAttribute('title', `${day.date}\n${day.sessions} ${t('sessionsUnit')} · ${day.minutes} ${t('minutesUnit')}`);
+    block.setAttribute('aria-label', `${day.date}: ${day.sessions} ${t('sessionsUnit')}, ${day.minutes} ${t('minutesUnit')}`);
 
     const label = document.createElement('span');
     label.className = 'heatmap-label';
@@ -323,7 +325,7 @@ function renderHeatmap() {
 // ---------------------------------------------------------------------------
 
 export function initStats() {
-  document.addEventListener('timer:sessionComplete', function (e) {
+  on(TIMER_SESSION_COMPLETE, function (e) {
     const { mode, actualDuration } = e.detail;
     if (mode === 'FOCUS') {
       recordSession(actualDuration);
@@ -331,7 +333,7 @@ export function initStats() {
     }
   });
 
-  document.addEventListener('settings:dataChanged', function () {
+  on(SETTINGS_DATA_CHANGED, function () {
     invalidateStatsCache();
     renderStats();
   });

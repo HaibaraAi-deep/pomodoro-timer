@@ -8,6 +8,8 @@
  *   initPWA() — register beforeinstallprompt listener and render install UI
  */
 
+import { t } from './i18n.js';
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -45,8 +47,8 @@ function renderInstallButton() {
   const btn = document.createElement('button');
   btn.id = 'pwaInstallBtn';
   btn.className = 'btn btn-secondary btn-sm pwa-install-btn';
-  btn.textContent = '\u{1F4F1} 安装应用';
-  btn.setAttribute('aria-label', '安装应用到桌面');
+  btn.textContent = '\u{1F4F1} ' + t('installApp');
+  btn.setAttribute('aria-label', t('installAppLabel'));
 
   btn.addEventListener('click', handleInstallClick);
 

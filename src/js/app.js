@@ -44,6 +44,8 @@ import { initConfetti } from './confetti.js';
 import { initPWA } from './pwa.js';
 import { initAudio } from './audio.js';
 import { initSettings } from './settings.js';
+import { t, tf, applyI18n, toggleLang, getCurrentLang } from './i18n.js';
+import { TIMER_INCREMENT_POMODOROS, SETTINGS_DATA_CHANGED, TIMER_SESSION_COMPLETE, on } from './events.js';
 
 // ---------------------------------------------------------------------------
 // Global Error Handling
@@ -67,6 +69,8 @@ function initApp() {
   console.log('[Pomodoro] App initializing...');
 
   setupGlobalErrorHandling();
+
+  applyI18n();
 
   // --- Timer module ---
   initTimer();
@@ -105,7 +109,7 @@ function initApp() {
   console.log('[Pomodoro] Settings initialised.');
 
   // --- Listen for timer:incrementPomodoros event ---
-  document.addEventListener('timer:incrementPomodoros', function () {
+  on(TIMER_INCREMENT_POMODOROS, function () {
     const activeId = getActiveTaskId();
     if (activeId) {
       incrementPomodoros(activeId);
@@ -122,12 +126,16 @@ function initApp() {
   });
 
   // --- Listen for settings:dataChanged ---
-  document.addEventListener('settings:dataChanged', function () {
+  on(SETTINGS_DATA_CHANGED, function () {
     reloadTasks();
     renderTaskList();
     resetTimer();
     resetSessionCounter();
+    applyI18n();
   });
+
+  // --- Language toggle button ---
+  wireLangToggle();
 
   // --- Keyboard shortcuts ---
   setupKeyboardShortcuts();
@@ -271,7 +279,7 @@ function renderTaskList() {
 
       const deleteBtn = existingLi.querySelector('.task-delete-btn');
       if (deleteBtn) {
-        deleteBtn.setAttribute('aria-label', '删除任务: ' + sanitizeForAria(task.title));
+        deleteBtn.setAttribute('aria-label', t('deleteTask') + ': ' + sanitizeForAria(task.title));
       }
 
       if (task.completed) {
@@ -325,13 +333,13 @@ function createTaskElement(task, activeId) {
   checkbox.type = 'checkbox';
   checkbox.className = 'task-checkbox';
   checkbox.checked = task.completed;
-  checkbox.setAttribute('aria-label', task.completed ? '标记未完成' : '标记完成');
+  checkbox.setAttribute('aria-label', task.completed ? t('markIncomplete') : t('markComplete'));
   checkbox.addEventListener('change', function () {
     const updatedTask = toggleTask(task.id);
     if (updatedTask) {
       updateLiveRegion(updatedTask.completed
-        ? `任务 "${updatedTask.title}" 已标记为完成`
-        : `任务 "${updatedTask.title}" 已标记为未完成`);
+        ? tf('taskMarkedComplete', [updatedTask.title])
+        : tf('taskMarkedIncomplete', [updatedTask.title]));
       renderTaskList();
     }
   });
@@ -344,10 +352,10 @@ function createTaskElement(task, activeId) {
     if (!task.completed) {
       setActiveTaskId(task.id);
       renderTaskList();
-      updateLiveRegion(`已将 "${task.title}" 设为当前专注任务`);
+      updateLiveRegion(tf('taskSetAsFocus', [task.title]));
     }
   });
-  titleSpan.setAttribute('title', '点击设为当前专注任务');
+  titleSpan.setAttribute('title', t('setFocusTask'));
 
   // Pomodoro count badge
   const pomoBadge = document.createElement('span');
@@ -361,7 +369,7 @@ function createTaskElement(task, activeId) {
   // Delete button
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'task-delete-btn';
-  deleteBtn.setAttribute('aria-label', '删除任务: ' + sanitizeForAria(task.title));
+  deleteBtn.setAttribute('aria-label', t('deleteTask') + ': ' + sanitizeForAria(task.title));
   deleteBtn.textContent = '\u00D7';
   deleteBtn.addEventListener('click', function (e) {
     e.stopPropagation();
@@ -374,7 +382,7 @@ function createTaskElement(task, activeId) {
       deleteBtn.disabled = false;
       const success = deleteTask(task.id);
       if (success) {
-        updateLiveRegion(`任务 "${task.title}" 已删除`);
+        updateLiveRegion(tf('taskDeleted', [task.title]));
       }
       renderTaskList();
     }, { once: true });
@@ -401,7 +409,7 @@ function wireTaskInput() {
       const task = addTask(raw);
       inputEl.value = '';
 
-      updateLiveRegion(`已添加任务: ${task.title}`);
+      updateLiveRegion(tf('taskAdded', [task.title]));
 
       renderTaskList();
     } catch (err) {
@@ -429,6 +437,22 @@ function updateLiveRegion(message) {
   const liveRegion = document.getElementById('liveRegion');
   if (liveRegion) {
     liveRegion.textContent = message;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Language Toggle
+// ---------------------------------------------------------------------------
+
+function wireLangToggle() {
+  const langToggleBtn = document.getElementById('langToggleBtn');
+  if (langToggleBtn) {
+    langToggleBtn.addEventListener('click', function () {
+      toggleLang();
+      applyI18n();
+      renderStats();
+      renderTaskList();
+    });
   }
 }
 

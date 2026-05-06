@@ -9,6 +9,8 @@
  *   initAudio() — register event listener for session completion
  */
 
+import { TIMER_SESSION_COMPLETE, on } from './events.js';
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -20,7 +22,7 @@ let audioCtx = null;
 // ---------------------------------------------------------------------------
 
 export function initAudio() {
-  document.addEventListener('timer:sessionComplete', function (e) {
+  on(TIMER_SESSION_COMPLETE, function (e) {
     const { mode } = e.detail;
     playNotificationSound(mode);
   });

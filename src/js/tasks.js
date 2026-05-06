@@ -1,30 +1,4 @@
-/**
- * tasks.js — Task CRUD Module with LocalStorage Persistence
- *
- * Manages an in-memory task array with full CRUD operations and automatic
- * persistence to LocalStorage under the key `pomodoro_tasks`.
- *
- * Data model:
- *   { id, title, completed, pomodoros, createdAt, completedAt }
- *
- * LocalStorage schema:
- *   pomodoro_tasks → JSON array of task objects
- *
- * Exports:
- *   addTask(title)        — create and persist a new task
- *   deleteTask(id)        — remove a task by id
- *   toggleTask(id)        — flip completed state, set/clear completedAt
- *   getTasks()            — return sorted array (incomplete first, then by createdAt desc)
- *   getTaskById(id)       — find a single task by id
- *   incrementPomodoros(id)— increment the pomodoro counter for a task
- *   getActiveTaskId()     — get the currently active task id
- *   setActiveTaskId(id)   — set the currently active task id
- *   reloadTasks()         — reload tasks from localStorage
- */
-
-// ---------------------------------------------------------------------------
-// UUID generator
-// ---------------------------------------------------------------------------
+import { t } from './i18n.js';
 
 function generateId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -58,17 +32,9 @@ function generateId() {
   return parts.join('');
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function sanitizeForAria(text) {
   return String(text).replace(/[\x00-\x1F\x7F]/g, '').trim();
 }
-
-// ---------------------------------------------------------------------------
-// LocalStorage helpers
-// ---------------------------------------------------------------------------
 
 const STORAGE_KEY = 'pomodoro_tasks';
 const ACTIVE_TASK_KEY = 'pomodoro_active_task';
@@ -157,11 +123,11 @@ function showStorageWarning() {
     'background:#fff3cd;color:#856404;border:1px solid #ffc107;' +
     'border-radius:8px;padding:12px 40px 12px 16px;margin-bottom:12px;' +
     'font-size:14px;line-height:1.5;position:relative;animation:fadeIn 0.3s ease;';
-  warning.textContent = '⚠️ 存储空间不足，任务数据可能无法保存。请清理浏览器数据。';
+  warning.textContent = t('storageWarningTask');
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'storage-warning-close';
-  closeBtn.setAttribute('aria-label', '关闭警告');
+  closeBtn.setAttribute('aria-label', t('storageWarningClose'));
   closeBtn.textContent = '\u00D7';
   closeBtn.style.cssText =
     'position:absolute;right:8px;top:50%;transform:translateY(-50%);' +
@@ -181,10 +147,6 @@ function showStorageWarning() {
   }, 3000);
 }
 
-// ---------------------------------------------------------------------------
-// In-memory state
-// ---------------------------------------------------------------------------
-
 let tasks = loadTasks();
 let activeTaskId = loadActiveTaskId();
 
@@ -192,6 +154,7 @@ function loadActiveTaskId() {
   try {
     return localStorage.getItem(ACTIVE_TASK_KEY) || null;
   } catch (e) {
+    console.warn('[Tasks] Failed to load active task ID:', e);
     return null;
   }
 }
@@ -204,13 +167,9 @@ function saveActiveTaskId() {
       localStorage.removeItem(ACTIVE_TASK_KEY);
     }
   } catch (e) {
-    // ignore
+    console.warn('[Tasks] Failed to save active task ID:', e);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 export function addTask(title) {
   const trimmed = String(title).trim();
@@ -232,7 +191,7 @@ export function addTask(title) {
   if (saved) {
     tasks.push(task);
   } else {
-    tasks.push(task);
+    throw new Error('Failed to save task to storage.');
   }
 
   return task;

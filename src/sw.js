@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 /** Bump this version whenever cached assets change to trigger cache refresh. */
-const CACHE_VERSION = 'pomodoro-v1';
+const CACHE_VERSION = 'pomodoro-v2';
 
 /** Full cache name including version. */
 const CACHE_NAME = `pomodoro-cache-${CACHE_VERSION}`;
@@ -23,6 +23,8 @@ const PRECACHE_URLS = [
   './',
   'index.html',
   'css/base.css',
+  'js/i18n.js',
+  'js/events.js',
   'js/app.js',
   'js/timer.js',
   'js/timer-worker.js',
