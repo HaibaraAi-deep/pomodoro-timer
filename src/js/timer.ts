@@ -88,7 +88,7 @@ export function initTimer(): void {
   cacheDomElements();
 
   try {
-    worker = new Worker('js/timer-worker.js');
+    worker = new Worker(new URL('./timer-worker.ts', import.meta.url));
   } catch (err) {
     console.error('[Timer] Failed to create Web Worker:', err);
     console.log('[Timer] Falling back to setInterval timer');

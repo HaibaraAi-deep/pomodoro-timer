@@ -8,7 +8,10 @@ export default defineConfig({
     outDir: resolve(__dirname, 'dist-web'),
     emptyOutDir: true,
     rollupOptions: {
-      input: resolve(__dirname, 'src/index.html'),
+      input: {
+        main: resolve(__dirname, 'src/index.html'),
+        sw: resolve(__dirname, 'src/sw.ts'),
+      },
     },
   },
   server: {
