@@ -1,6 +1,15 @@
 import { t } from './i18n.js';
 
-function generateId() {
+export interface Task {
+  id: string;
+  title: string;
+  completed: boolean;
+  pomodoros: number;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+function generateId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
@@ -19,7 +28,7 @@ function generateId() {
   rand[6] = (rand[6] & 0x0f) | 0x40;
   rand[8] = (rand[8] & 0x3f) | 0x80;
 
-  const parts = [];
+  const parts: string[] = [];
   for (let i = 0; i < 16; i++) {
     const byte = rand[i];
     parts.push(hex[(byte >>> 4) & 0xf]);
@@ -32,14 +41,14 @@ function generateId() {
   return parts.join('');
 }
 
-function sanitizeForAria(text) {
+export function sanitizeForAria(text: string): string {
   return String(text).replace(/[\x00-\x1F\x7F]/g, '').trim();
 }
 
 const STORAGE_KEY = 'pomodoro_tasks';
 const ACTIVE_TASK_KEY = 'pomodoro_active_task';
 
-function loadTasks() {
+function loadTasks(): Task[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -51,8 +60,8 @@ function loadTasks() {
       return [];
     }
 
-    const validTasks = [];
-    parsed.forEach((task, index) => {
+    const validTasks: Task[] = [];
+    parsed.forEach((task: any, index: number) => {
       if (typeof task !== 'object' || task === null) {
         console.warn(`[Tasks] Invalid task at index ${index}, skipping`);
         return;
@@ -98,7 +107,7 @@ function loadTasks() {
   }
 }
 
-function saveTasks(tasks) {
+function saveTasks(tasks: Task[]): boolean {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
     return true;
@@ -109,7 +118,7 @@ function saveTasks(tasks) {
   }
 }
 
-function showStorageWarning() {
+function showStorageWarning(): void {
   const taskList = document.getElementById('taskList');
   if (!taskList) return;
 
@@ -138,7 +147,7 @@ function showStorageWarning() {
   });
   warning.appendChild(closeBtn);
 
-  taskList.parentNode.insertBefore(warning, taskList);
+  taskList.parentNode!.insertBefore(warning, taskList);
 
   setTimeout(function () {
     if (warning.parentNode) {
@@ -147,10 +156,10 @@ function showStorageWarning() {
   }, 3000);
 }
 
-let tasks = loadTasks();
-let activeTaskId = loadActiveTaskId();
+let tasks: Task[] = loadTasks();
+let activeTaskId: string | null = loadActiveTaskId();
 
-function loadActiveTaskId() {
+function loadActiveTaskId(): string | null {
   try {
     return localStorage.getItem(ACTIVE_TASK_KEY) || null;
   } catch (e) {
@@ -159,7 +168,7 @@ function loadActiveTaskId() {
   }
 }
 
-function saveActiveTaskId() {
+function saveActiveTaskId(): void {
   try {
     if (activeTaskId) {
       localStorage.setItem(ACTIVE_TASK_KEY, activeTaskId);
@@ -171,14 +180,14 @@ function saveActiveTaskId() {
   }
 }
 
-export function addTask(title) {
+export function addTask(title: string): Task {
   const trimmed = String(title).trim();
   if (!trimmed) {
     throw new Error('Task title cannot be empty.');
   }
 
   const now = new Date().toISOString();
-  const task = {
+  const task: Task = {
     id: generateId(),
     title: trimmed.slice(0, 200),
     completed: false,
@@ -197,7 +206,7 @@ export function addTask(title) {
   return task;
 }
 
-export function deleteTask(id) {
+export function deleteTask(id: string): boolean {
   const index = tasks.findIndex(function (t) { return t.id === id; });
   if (index === -1) return false;
 
@@ -216,7 +225,7 @@ export function deleteTask(id) {
   return true;
 }
 
-export function toggleTask(id) {
+export function toggleTask(id: string): Task | null {
   const task = tasks.find(function (t) { return t.id === id; });
   if (!task) return null;
 
@@ -239,7 +248,7 @@ export function toggleTask(id) {
   return task;
 }
 
-export function incrementPomodoros(id) {
+export function incrementPomodoros(id: string): Task | null {
   const task = tasks.find(function (t) { return t.id === id; });
   if (!task) return null;
 
@@ -253,20 +262,20 @@ export function incrementPomodoros(id) {
   return task;
 }
 
-export function getTasks() {
+export function getTasks(): Task[] {
   return tasks.slice().sort(function (a, b) {
     if (a.completed !== b.completed) {
       return a.completed ? 1 : -1;
     }
-    return new Date(b.createdAt) - new Date(a.createdAt);
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 }
 
-export function getTaskById(id) {
+export function getTaskById(id: string): Task | undefined {
   return tasks.find(function (t) { return t.id === id; });
 }
 
-export function getActiveTaskId() {
+export function getActiveTaskId(): string | null {
   if (activeTaskId) {
     const task = tasks.find(t => t.id === activeTaskId && !t.completed);
     if (task) return activeTaskId;
@@ -274,7 +283,7 @@ export function getActiveTaskId() {
   return null;
 }
 
-export function setActiveTaskId(id) {
+export function setActiveTaskId(id: string | null): void {
   if (id === null) {
     activeTaskId = null;
   } else {
@@ -288,9 +297,7 @@ export function setActiveTaskId(id) {
   saveActiveTaskId();
 }
 
-export function reloadTasks() {
+export function reloadTasks(): void {
   tasks = loadTasks();
   activeTaskId = loadActiveTaskId();
 }
-
-export { sanitizeForAria };

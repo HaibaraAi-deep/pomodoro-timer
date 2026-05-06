@@ -1177,3 +1177,73 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-hover);
 }
+
+[data-theme="high-contrast"] {
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-card: #111111;
+  --bg-card-hover: #1a1a1a;
+  --bg-input: #111111;
+  --bg-overlay: rgba(0,0,0,0.85);
+
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
+  --text-tertiary: #999999;
+  --text-inverse: #000000;
+
+  --accent: #ff4444;
+  --accent-hover: #ff6666;
+  --accent-soft: rgba(255,68,68,0.2);
+  --accent-glow: rgba(255,68,68,0.4);
+
+  --success: #44ff88;
+  --success-soft: rgba(68,255,136,0.2);
+
+  --long-break: #6688ff;
+  --long-break-soft: rgba(102,136,255,0.2);
+
+  --border: rgba(255,255,255,0.3);
+  --border-hover: rgba(255,255,255,0.5);
+
+  --ring-track: rgba(255,255,255,0.15);
+  --ring-focus: var(--accent);
+  --ring-short: var(--success);
+  --ring-long: var(--long-break);
+
+  --heatmap-0: rgba(255,255,255,0.1);
+  --heatmap-1: rgba(255,68,68,0.3);
+  --heatmap-2: rgba(255,68,68,0.5);
+  --heatmap-3: rgba(255,68,68,0.7);
+  --heatmap-4: rgba(255,68,68,1);
+}
+
+[data-theme="high-contrast"] .task-checkbox {
+  border-width: 3px;
+  border-color: #ffffff;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+}
+
+[data-theme="high-contrast"] .btn-primary {
+  border: 2px solid #ffffff;
+}
+
+[data-theme="high-contrast"] .mode-btn.active {
+  border: 2px solid #ffffff;
+}
+
+[data-theme="high-contrast"] .icon-btn {
+  border-width: 2px;
+  border-color: rgba(255,255,255,0.5);
+}
+
+[data-theme="high-contrast"] .card {
+  border-width: 2px;
+  border-color: rgba(255,255,255,0.3);
+}
+
+[data-theme="high-contrast"] .task-input {
+  border-width: 2px;
+  border-color: rgba(255,255,255,0.3);
+}

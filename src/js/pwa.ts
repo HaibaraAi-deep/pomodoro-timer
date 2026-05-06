@@ -1,29 +1,16 @@
-/**
- * pwa.js — Progressive Web App Module
- *
- * Handles the "Add to Home Screen" install prompt and provides
- * a user-friendly UI for the install experience.
- *
- * Exports:
- *   initPWA() — register beforeinstallprompt listener and render install UI
- */
-
 import { t } from './i18n.js';
 
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: string }>;
+}
 
-let deferredPrompt = null;
+let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-export function initPWA() {
-  window.addEventListener('beforeinstallprompt', function (e) {
+export function initPWA(): void {
+  window.addEventListener('beforeinstallprompt', function (e: Event) {
     e.preventDefault();
-    deferredPrompt = e;
+    deferredPrompt = e as BeforeInstallPromptEvent;
     renderInstallButton();
   });
 
@@ -33,11 +20,7 @@ export function initPWA() {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Install UI
-// ---------------------------------------------------------------------------
-
-function renderInstallButton() {
+function renderInstallButton(): void {
   const existing = document.getElementById('pwaInstallBtn');
   if (existing) return;
 
@@ -55,12 +38,12 @@ function renderInstallButton() {
   footer.insertBefore(btn, footer.firstChild);
 }
 
-function removeInstallButton() {
+function removeInstallButton(): void {
   const btn = document.getElementById('pwaInstallBtn');
   if (btn) btn.remove();
 }
 
-async function handleInstallClick() {
+async function handleInstallClick(): Promise<void> {
   if (!deferredPrompt) return;
 
   deferredPrompt.prompt();

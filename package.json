@@ -4,14 +4,30 @@
   "description": "番茄钟 — 极简番茄钟与任务追踪 PWA 应用",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "build": "electron-builder --win"
+    "dev": "vite",
+    "build:web": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && electron-builder --win",
+    "preview": "vite preview",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "typecheck": "tsc --noEmit",
+    "start": "electron ."
   },
   "author": "HaibaraAi-deep",
   "license": "MIT",
   "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.6.0",
     "electron": "^42.0.0",
-    "electron-builder": "^26.8.1"
+    "electron-builder": "^26.8.1",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "jsdom": "^29.1.1",
+    "ts-jest": "^29.4.9",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10"
   },
   "build": {
     "appId": "com.pomodoro.timer",

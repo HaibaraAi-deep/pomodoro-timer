@@ -1,8 +1,8 @@
 const LANG_KEY = 'pomodoro_lang';
 
-let currentLang = loadLang();
+let currentLang: 'zh' | 'en' = loadLang();
 
-function loadLang() {
+function loadLang(): 'zh' | 'en' {
   try {
     const saved = localStorage.getItem(LANG_KEY);
     if (saved === 'zh' || saved === 'en') return saved;
@@ -12,7 +12,7 @@ function loadLang() {
   return 'zh';
 }
 
-function saveLang() {
+function saveLang(): void {
   try {
     localStorage.setItem(LANG_KEY, currentLang);
   } catch (e) {
@@ -20,7 +20,7 @@ function saveLang() {
   }
 }
 
-const translations = {
+const translations: Record<string, Record<string, string>> = {
   zh: {
     focus: '专注',
     shortBreak: '短休息',
@@ -86,6 +86,7 @@ const translations = {
     toggleTheme: '切换主题',
     switchToLight: '切换到亮色主题',
     switchToDark: '切换到暗色主题',
+    switchToHighContrast: '切换到高对比度主题',
     dataManage: '数据管理',
     closeSettings: '关闭设置',
     containsData: '包含: 任务 + 统计',
@@ -173,6 +174,7 @@ const translations = {
     toggleTheme: 'Toggle theme',
     switchToLight: 'Switch to light theme',
     switchToDark: 'Switch to dark theme',
+    switchToHighContrast: 'Switch to high contrast theme',
     dataManage: 'Data management',
     closeSettings: 'Close settings',
     containsData: 'Contains: Tasks + Stats',
@@ -197,50 +199,50 @@ const translations = {
   },
 };
 
-const weekdaysZh = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-const weekdaysEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const weekdaysZh: string[] = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+const weekdaysEn: string[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function t(key) {
+export function t(key: string): string {
   const dict = translations[currentLang] || translations.zh;
   return dict[key] || translations.zh[key] || key;
 }
 
-export function tf(key, args) {
+export function tf(key: string, args?: string[]): string {
   let str = t(key);
   if (args) {
     for (let i = 0; i < args.length; i++) {
-      str = str.replace('{'+i+'}', args[i]);
+      str = str.replace('{' + i + '}', args[i]);
     }
   }
   return str;
 }
 
-export function getCurrentLang() {
+export function getCurrentLang(): 'zh' | 'en' {
   return currentLang;
 }
 
-export function getWeekdays() {
+export function getWeekdays(): string[] {
   return currentLang === 'zh' ? weekdaysZh : weekdaysEn;
 }
 
-export function toggleLang() {
+export function toggleLang(): void {
   currentLang = currentLang === 'zh' ? 'en' : 'zh';
   saveLang();
   applyI18n();
 }
 
-export function applyI18n() {
+export function applyI18n(): void {
   document.querySelectorAll('[data-i18n]').forEach(function (el) {
     const key = el.getAttribute('data-i18n');
-    el.textContent = t(key);
+    el.textContent = t(key!);
   });
   document.querySelectorAll('[data-i18n-aria]').forEach(function (el) {
     const key = el.getAttribute('data-i18n-aria');
-    el.setAttribute('aria-label', t(key));
+    el.setAttribute('aria-label', t(key!));
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) {
     const key = el.getAttribute('data-i18n-placeholder');
-    el.setAttribute('placeholder', t(key));
+    el.setAttribute('placeholder', t(key!));
   });
   document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
   const langLabel = document.getElementById('langLabel');

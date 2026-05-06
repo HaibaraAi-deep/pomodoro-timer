@@ -6,7 +6,10 @@ const EXPORT_BUTTON_ID = 'exportBtn';
 const IMPORT_BUTTON_ID = 'importBtn';
 const CLEAR_ALL_BUTTON_ID = 'clearAllBtn';
 
-function buildSettingsHTML() {
+declare function getTasks(): unknown[];
+declare function getStats(): unknown[];
+
+function buildSettingsHTML(): string {
   return `
   <div id="${SETTINGS_CONTAINER_ID}" class="settings-container hidden">
     <div class="settings-header">
@@ -62,12 +65,12 @@ function buildSettingsHTML() {
 `;
 }
 
-function getFocusableElements(container) {
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
   const selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-  return Array.from(container.querySelectorAll(selectors));
+  return Array.from(container.querySelectorAll<HTMLElement>(selectors));
 }
 
-function trapFocus(container, event) {
+function trapFocus(container: HTMLElement, event: KeyboardEvent): void {
   const focusable = getFocusableElements(container);
   if (focusable.length === 0) return;
 
@@ -89,7 +92,7 @@ function trapFocus(container, event) {
   }
 }
 
-function showModal(title, message, onConfirm) {
+function showModal(title: string, message: string, onConfirm?: () => void): void {
   const existing = document.getElementById('appModal');
   if (existing) existing.remove();
 
@@ -143,7 +146,7 @@ function showModal(title, message, onConfirm) {
 
   confirmBtn.focus();
 
-  function keyHandler(e) {
+  function keyHandler(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
       cleanup();
       overlay.remove();
@@ -152,13 +155,13 @@ function showModal(title, message, onConfirm) {
     }
   }
 
-  function cleanup() {
+  function cleanup(): void {
     document.removeEventListener('keydown', keyHandler);
   }
 
   document.addEventListener('keydown', keyHandler);
 
-  overlay.addEventListener('click', function (e) {
+  overlay.addEventListener('click', function (e: MouseEvent) {
     if (e.target === overlay) {
       cleanup();
       overlay.remove();
@@ -166,7 +169,7 @@ function showModal(title, message, onConfirm) {
   });
 }
 
-function showToast(message) {
+function showToast(message: string): void {
   const existing = document.getElementById('appToast');
   if (existing) existing.remove();
 
@@ -191,7 +194,7 @@ function showToast(message) {
   }, 3000);
 }
 
-export function exportData() {
+export function exportData(): void {
   const data = {
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -208,7 +211,7 @@ export function exportData() {
   console.log('[Settings] Data exported:', filename);
 }
 
-function downloadFile(url, filename) {
+function downloadFile(url: string, filename: string): void {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
@@ -223,50 +226,51 @@ function downloadFile(url, filename) {
   }, 100);
 }
 
-function importData() {
+function importData(): void {
   const fileInput = document.getElementById('importFileInput');
   if (fileInput) {
     fileInput.click();
   }
 }
 
-function isValidTask(item) {
+function isValidTask(item: unknown): boolean {
   return (
     item !== null &&
     typeof item === 'object' &&
-    typeof item.id === 'string' &&
-    typeof item.title === 'string' &&
-    typeof item.completed === 'boolean' &&
-    typeof item.pomodoros === 'number'
+    typeof (item as Record<string, unknown>).id === 'string' &&
+    typeof (item as Record<string, unknown>).title === 'string' &&
+    typeof (item as Record<string, unknown>).completed === 'boolean' &&
+    typeof (item as Record<string, unknown>).pomodoros === 'number'
   );
 }
 
-function isValidStat(item) {
+function isValidStat(item: unknown): boolean {
   return (
     item !== null &&
     typeof item === 'object' &&
-    typeof item.date === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/.test(item.date) &&
-    typeof item.duration === 'number' &&
-    item.duration >= 0 &&
-    typeof item.timestamp === 'string'
+    typeof (item as Record<string, unknown>).date === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test((item as Record<string, unknown>).date as string) &&
+    typeof (item as Record<string, unknown>).duration === 'number' &&
+    (item as Record<string, unknown>).duration as number >= 0 &&
+    typeof (item as Record<string, unknown>).timestamp === 'string'
   );
 }
 
-function handleImportFile(e) {
-  const file = e.target.files[0];
+function handleImportFile(e: Event): void {
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0];
   if (!file) return;
 
   if (file.size > 1048576) {
     showToast(t('importFailTooLarge'));
-    e.target.value = '';
+    target.value = '';
     return;
   }
 
   const reader = new FileReader();
-  reader.onload = function (event) {
+  reader.onload = function (event: ProgressEvent<FileReader>) {
     try {
-      const data = JSON.parse(event.target.result);
+      const data = JSON.parse(event.target?.result as string);
 
       if (typeof data !== 'object' || data === null) {
         showToast(t('importFailFormat'));
@@ -311,10 +315,10 @@ function handleImportFile(e) {
   };
 
   reader.readAsText(file);
-  e.target.value = '';
+  target.value = '';
 }
 
-export function clearAllData() {
+export function clearAllData(): void {
   showModal(t('clearTitle'), t('clearConfirm'), function () {
     try {
       localStorage.removeItem('pomodoro_tasks');
@@ -331,7 +335,7 @@ export function clearAllData() {
   });
 }
 
-function renderSettingsContainer() {
+function renderSettingsContainer(): void {
   const existingTrigger = document.getElementById(SETTINGS_CONTAINER_ID);
   if (existingTrigger) return;
 
@@ -341,10 +345,10 @@ function renderSettingsContainer() {
   const container = document.createElement('div');
   container.innerHTML = buildSettingsHTML();
   const content = container.firstElementChild;
-  footer.parentNode.insertBefore(content, footer);
+  footer.parentNode!.insertBefore(content!, footer);
 }
 
-function wireSettingsUI() {
+function wireSettingsUI(): void {
   const container = document.getElementById(SETTINGS_CONTAINER_ID);
   if (!container) return;
 
@@ -368,7 +372,7 @@ function wireSettingsUI() {
     clearAllBtn.addEventListener('click', clearAllData);
   }
 
-  const closeButtons = container.querySelectorAll('[id$="CloseBtn"]');
+  const closeButtons = container.querySelectorAll<HTMLButtonElement>('[id$="CloseBtn"]');
   closeButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       container.classList.add('hidden');
@@ -376,7 +380,7 @@ function wireSettingsUI() {
   });
 }
 
-export function toggleSettings() {
+export function toggleSettings(): void {
   const container = document.getElementById(SETTINGS_CONTAINER_ID);
   if (!container) return;
 
@@ -388,9 +392,9 @@ export function toggleSettings() {
   }
 }
 
-export function initSettings() {
-  if (initSettings._initialised) return;
-  initSettings._initialised = true;
+export function initSettings(): void {
+  if ((initSettings as unknown as Record<string, boolean>)._initialised) return;
+  (initSettings as unknown as Record<string, boolean>)._initialised = true;
 
   renderSettingsContainer();
   wireSettingsUI();
